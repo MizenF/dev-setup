@@ -1,0 +1,42 @@
+[user]
+    name = YOUR_NAME_HERE
+    email = YOUR_EMAIL_HERE
+
+[core]
+    editor = code --wait
+    autocrlf = input
+    
+[alias]
+    s = status
+    co = checkout
+    cm = commit
+    cm-m = commit -m
+    br = branch
+    lg = log --oneline --graph --all
+    last = log -1 HEAD
+    unstage = reset HEAD --
+    
+[pull]
+    rebase = false
+    
+[init]
+    defaultBranch = main
+    
+[color]
+    ui = auto
+    
+[color "branch"]
+    current = yellow bold
+    local = green
+    remote = cyan
+    
+[color "diff"]
+    meta = yellow
+    frag = magenta bold
+    old = red bold
+    new = green bold
+    
+[color "status"]
+    added = green
+    changed = yellow
+    untracked = red

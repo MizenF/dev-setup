@@ -1,0 +1,51 @@
+# Homebrew Bundle File for macOS Dev Setup
+# Run: brew bundle --file=Brewfile
+
+# ============================================
+# 语言环境
+# ============================================
+brew "python"
+brew "node"
+brew "git"
+brew "openjdk@17"
+
+# ============================================
+# 前端工具
+# ============================================
+brew "yarn"
+brew "pnpm"
+brew "typescript"
+
+# ============================================
+# CLI 工具
+# ============================================
+brew "ripgrep"        # 更快的 grep
+brew "fd"             # 更快的 find
+brew "bat"            # 更好的 cat
+brew "eza"            # 更好的 ls
+brew "fzf"            # 模糊查找
+brew "tmux"           # 终端复用器
+brew "wget"           # 下载工具
+brew "curl"           # HTTP 客户端
+brew "httpie"         # 人性化的 HTTP 客户端
+brew "jq"             # JSON 处理器
+brew "yq"             # YAML 处理器
+brew "neofetch"       # 系统信息显示
+brew "tree"           # 目录树显示
+
+# ============================================
+# 容器 / 工具
+# ============================================
+brew "docker"
+brew "docker-compose"
+
+# ============================================
+# 应用程序 (Casks)
+# ============================================
+cask "visual-studio-code"
+cask "google-chrome"
+cask "iterm2"
+cask "postman"
+cask "bruno"
+cask "7zip"
+cask "claude"            # Claude Desktop (AI 助手)

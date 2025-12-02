@@ -1,58 +1,58 @@
-# Windows 开发环境自动安装脚本
-# 必须以管理员身份运行 PowerShell
+# Windows Development Environment Setup Script
+# Must run as Administrator
 
 #Requires -RunAsAdministrator
 
 param(
-    [bool]$enableWSL = $false  # 是否启用 WSL2 初始化
+    [bool]$enableWSL = $false  # Enable WSL2 initialization
 )
 
 $ErrorActionPreference = "Stop"
 
-Write-Host "🚀 开始配置 Windows 开发环境..." -ForegroundColor Cyan
+Write-Host "Starting Windows development environment setup..." -ForegroundColor Cyan
 Write-Host ""
 
-# 获取脚本所在目录
+# Get script directory
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Split-Path -Parent $ScriptDir
 
-# 1. 检查并安装 winget
-Write-Host "📦 检查 winget..." -ForegroundColor Yellow
+# 1. Check and install winget
+Write-Host "Checking winget..." -ForegroundColor Yellow
 try {
     $wingetVersion = winget --version
-    Write-Host "✅ winget 已安装: $wingetVersion" -ForegroundColor Green
+    Write-Host "winget installed: $wingetVersion" -ForegroundColor Green
 } catch {
-    Write-Host "⚠️  winget 未找到，请先安装 App Installer" -ForegroundColor Red
-    Write-Host "   从 Microsoft Store 安装: https://aka.ms/getwinget" -ForegroundColor Yellow
+    Write-Host "WARNING: winget not found, please install App Installer" -ForegroundColor Red
+    Write-Host "   Install from Microsoft Store: https://aka.ms/getwinget" -ForegroundColor Yellow
     exit 1
 }
 
-# 2. 导入并安装 winget 软件包
+# 2. Import and install winget packages
 Write-Host ""
-Write-Host "📦 安装软件包（根据 setup.winget.json）..." -ForegroundColor Yellow
+Write-Host "Installing packages (from setup.winget.json)..." -ForegroundColor Yellow
 
 $wingetJsonPath = Join-Path $ScriptDir "setup.winget.json"
 if (Test-Path $wingetJsonPath) {
     try {
-        # 使用 winget import 命令
-        Write-Host "正在导入软件包清单..." -ForegroundColor Gray
+        # Use winget import command
+        Write-Host "Importing package manifest..." -ForegroundColor Gray
         winget import -i $wingetJsonPath --accept-package-agreements --accept-source-agreements --ignore-versions
-        Write-Host "✅ 软件包安装完成" -ForegroundColor Green
+        Write-Host "Package installation completed" -ForegroundColor Green
     } catch {
-        Write-Host "⚠️  部分软件包可能安装失败，请检查日志" -ForegroundColor Yellow
+        Write-Host "WARNING: Some packages may have failed to install, please check logs" -ForegroundColor Yellow
     }
 } else {
-    Write-Host "⚠️  未找到 setup.winget.json，跳过软件包安装" -ForegroundColor Yellow
+    Write-Host "WARNING: setup.winget.json not found, skipping package installation" -ForegroundColor Yellow
 }
 
-# 3. 刷新环境变量（不需要重启）
+# 3. Refresh environment variables (no restart needed)
 Write-Host ""
-Write-Host "🔄 刷新环境变量..." -ForegroundColor Yellow
+Write-Host "Refreshing environment variables..." -ForegroundColor Yellow
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 
-# 4. 检测并添加常用路径到 PATH
+# 4. Detect and add common paths to PATH
 Write-Host ""
-Write-Host "⚙️  配置 PATH..." -ForegroundColor Yellow
+Write-Host "Configuring PATH..." -ForegroundColor Yellow
 
 function Add-ToPathIfNotExists {
     param([string]$NewPath)
@@ -65,14 +65,14 @@ function Add-ToPathIfNotExists {
                 $currentPath + ";" + $NewPath,
                 "User"
             )
-            Write-Host "✅ 已添加到 PATH: $NewPath" -ForegroundColor Green
+            Write-Host "Added to PATH: $NewPath" -ForegroundColor Green
         } else {
-            Write-Host "✅ PATH 已包含: $NewPath" -ForegroundColor Gray
+            Write-Host "PATH already contains: $NewPath" -ForegroundColor Gray
         }
     }
 }
 
-# Python 路径
+# Python paths
 $pythonPaths = @(
     "$env:LOCALAPPDATA\Programs\Python\Python*",
     "$env:LOCALAPPDATA\Programs\Python\Python*\Scripts"
@@ -85,54 +85,54 @@ foreach ($pattern in $pythonPaths) {
     }
 }
 
-# Node.js 路径
+# Node.js path
 $nodePath = "$env:ProgramFiles\nodejs"
 Add-ToPathIfNotExists $nodePath
 
-# Git 路径
+# Git path
 $gitPath = "$env:ProgramFiles\Git\cmd"
 Add-ToPathIfNotExists $gitPath
 
-# 5. 配置 PowerShell Profile
+# 5. Configure PowerShell Profile
 Write-Host ""
-Write-Host "⚙️  配置 PowerShell Profile..." -ForegroundColor Yellow
+Write-Host "Configuring PowerShell Profile..." -ForegroundColor Yellow
 
 $profilePath = $PROFILE.CurrentUserAllHosts
 $profileDir = Split-Path -Parent $profilePath
 
-# 创建 Profile 目录（如果不存在）
+# Create Profile directory if it doesn't exist
 if (-not (Test-Path $profileDir)) {
     New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
 }
 
-# 复制 win_profile.ps1
+# Copy win_profile.ps1
 $sourceProfile = Join-Path $ScriptDir "win_profile.ps1"
 if (Test-Path $sourceProfile) {
-    # 备份现有 Profile（如果存在）
+    # Backup existing Profile if it exists
     if (Test-Path $profilePath) {
         $backupPath = "$profilePath.backup_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
         Copy-Item $profilePath $backupPath
-        Write-Host "✅ 已备份现有 Profile 到: $backupPath" -ForegroundColor Gray
+        Write-Host "Backed up existing Profile to: $backupPath" -ForegroundColor Gray
     }
     
     Copy-Item $sourceProfile $profilePath -Force
-    Write-Host "✅ 已配置 PowerShell Profile" -ForegroundColor Green
+    Write-Host "PowerShell Profile configured" -ForegroundColor Green
     
-    # 添加 dotfiles 引用
+    # Add dotfiles reference
     $aliasesPath = Join-Path $RepoRoot "dotfiles\aliases.sh"
     $aliasesLine = "# Load dev-setup aliases (converted for PowerShell)"
     
     if (-not (Select-String -Path $profilePath -Pattern "dev-setup aliases" -Quiet)) {
         Add-Content -Path $profilePath -Value "`n$aliasesLine"
-        Write-Host "✅ 已添加 aliases 引用到 Profile" -ForegroundColor Green
+        Write-Host "Added aliases reference to Profile" -ForegroundColor Green
     }
 } else {
-    Write-Host "⚠️  未找到 win_profile.ps1" -ForegroundColor Yellow
+    Write-Host "WARNING: win_profile.ps1 not found" -ForegroundColor Yellow
 }
 
-# 6. 配置 Git
+# 6. Configure Git
 Write-Host ""
-Write-Host "⚙️  配置 Git..." -ForegroundColor Yellow
+Write-Host "Configuring Git..." -ForegroundColor Yellow
 
 $gitconfigPath = Join-Path $env:USERPROFILE ".gitconfig"
 $sourceGitconfig = Join-Path $RepoRoot "dotfiles\gitconfig"
@@ -140,52 +140,52 @@ $sourceGitconfig = Join-Path $RepoRoot "dotfiles\gitconfig"
 if (-not (Test-Path $gitconfigPath)) {
     if (Test-Path $sourceGitconfig) {
         Copy-Item $sourceGitconfig $gitconfigPath
-        Write-Host "✅ 已复制 gitconfig" -ForegroundColor Green
-        Write-Host "⚠️  请运行以下命令设置 Git 用户信息：" -ForegroundColor Yellow
+        Write-Host "Copied gitconfig" -ForegroundColor Green
+        Write-Host "WARNING: Please run the following commands to set Git user info:" -ForegroundColor Yellow
         Write-Host "   git config --global user.name `"Your Name`"" -ForegroundColor Gray
         Write-Host "   git config --global user.email `"your.email@example.com`"" -ForegroundColor Gray
     } else {
-        Write-Host "⚠️  未找到 dotfiles\gitconfig" -ForegroundColor Yellow
+        Write-Host "WARNING: dotfiles\gitconfig not found" -ForegroundColor Yellow
     }
 } else {
-    Write-Host "✅ .gitconfig 已存在" -ForegroundColor Gray
+    Write-Host ".gitconfig already exists" -ForegroundColor Gray
 }
 
-# 7. WSL2 初始化（可选）
+# 7. WSL2 initialization (optional)
 if ($enableWSL) {
     Write-Host ""
-    Write-Host "🐧 初始化 WSL2..." -ForegroundColor Yellow
+    Write-Host "Initializing WSL2..." -ForegroundColor Yellow
     
-    # 检查 WSL 是否已启用
+    # Check if WSL is enabled
     $wslFeature = Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux
     
     if ($wslFeature.State -ne "Enabled") {
-        Write-Host "正在启用 WSL 功能..." -ForegroundColor Gray
+        Write-Host "Enabling WSL feature..." -ForegroundColor Gray
         dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
         dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
         
-        Write-Host "⚠️  请重启计算机后再运行 WSL 初始化脚本" -ForegroundColor Yellow
+        Write-Host "WARNING: Please restart your computer and then run WSL initialization script" -ForegroundColor Yellow
     } else {
-        Write-Host "✅ WSL 已启用" -ForegroundColor Green
-        Write-Host "   可运行 WSL 设置脚本: wsl/setup.sh" -ForegroundColor Gray
+        Write-Host "WSL is enabled" -ForegroundColor Green
+        Write-Host "   You can run WSL setup script: wsl/setup.sh" -ForegroundColor Gray
     }
 }
 
-# 8. 刷新当前会话的 PATH
+# 8. Refresh current session PATH
 Write-Host ""
-Write-Host "🔄 刷新当前会话环境变量..." -ForegroundColor Yellow
+Write-Host "Refreshing current session environment variables..." -ForegroundColor Yellow
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 
-# 9. 完成
+# 9. Complete
 Write-Host ""
-Write-Host "✨ 安装完成！" -ForegroundColor Green
+Write-Host "Installation completed!" -ForegroundColor Green
 Write-Host ""
-Write-Host "📌 下一步：" -ForegroundColor Cyan
-Write-Host "   1. 重新打开 PowerShell（或运行: . `$PROFILE）" -ForegroundColor Gray
-Write-Host "   2. 配置 Git 用户信息（如果尚未配置）" -ForegroundColor Gray
-Write-Host "   3. 如需使用 WSL，请重启电脑后安装 Linux 发行版" -ForegroundColor Gray
+Write-Host "Next steps:" -ForegroundColor Cyan
+Write-Host "   1. Reopen PowerShell (or run: . `$PROFILE)" -ForegroundColor Gray
+Write-Host "   2. Configure Git user info (if not already configured)" -ForegroundColor Gray
+Write-Host "   3. If using WSL, restart computer and install Linux distribution" -ForegroundColor Gray
 Write-Host ""
-Write-Host "📚 查看已安装工具版本：" -ForegroundColor Cyan
+Write-Host "Checking installed tool versions:" -ForegroundColor Cyan
 try {
     Write-Host "   Python: $(python --version 2>&1)" -ForegroundColor Gray
 } catch {}

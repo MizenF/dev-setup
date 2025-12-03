@@ -27,6 +27,25 @@ try {
     exit 1
 }
 
+# 1.5. Upgrade PowerShell to latest version
+Write-Host ""
+Write-Host "Checking PowerShell version..." -ForegroundColor Yellow
+$currentPSVersion = $PSVersionTable.PSVersion
+Write-Host "Current PowerShell version: $currentPSVersion" -ForegroundColor Gray
+
+if ($currentPSVersion.Major -lt 7) {
+    Write-Host "Upgrading PowerShell to version 7..." -ForegroundColor Yellow
+    try {
+        winget install --id Microsoft.PowerShell --accept-package-agreements --accept-source-agreements
+        Write-Host "PowerShell upgraded successfully" -ForegroundColor Green
+        Write-Host "NOTE: Please restart your terminal to use PowerShell 7" -ForegroundColor Cyan
+    } catch {
+        Write-Host "WARNING: PowerShell upgrade failed, continuing with current version" -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "PowerShell 7+ is already installed" -ForegroundColor Green
+}
+
 # 2. Import and install winget packages
 Write-Host ""
 Write-Host "Installing packages (from setup.winget.json)..." -ForegroundColor Yellow
@@ -43,6 +62,17 @@ if (Test-Path $wingetJsonPath) {
     }
 } else {
     Write-Host "WARNING: setup.winget.json not found, skipping package installation" -ForegroundColor Yellow
+}
+
+# 2.5. Install Claude Code
+Write-Host ""
+Write-Host "Installing Claude Code..." -ForegroundColor Yellow
+try {
+    Invoke-Expression (Invoke-RestMethod -Uri "https://claude.ai/install.ps1")
+    Write-Host "Claude Code installed successfully" -ForegroundColor Green
+} catch {
+    Write-Host "WARNING: Claude Code installation failed" -ForegroundColor Yellow
+    Write-Host "   You can manually install it later with: irm https://claude.ai/install.ps1 | iex" -ForegroundColor Gray
 }
 
 # 3. Refresh environment variables (no restart needed)
@@ -93,6 +123,14 @@ Add-ToPathIfNotExists $nodePath
 $gitPath = "$env:ProgramFiles\Git\cmd"
 Add-ToPathIfNotExists $gitPath
 
+# User local bin path
+$localBinPath = Join-Path $env:USERPROFILE ".local\bin"
+if (-not (Test-Path $localBinPath)) {
+    New-Item -ItemType Directory -Path $localBinPath -Force | Out-Null
+    Write-Host "Created .local\bin directory" -ForegroundColor Gray
+}
+Add-ToPathIfNotExists $localBinPath
+
 # 5. Configure PowerShell Profile
 Write-Host ""
 Write-Host "Configuring PowerShell Profile..." -ForegroundColor Yellow
@@ -105,7 +143,7 @@ if (-not (Test-Path $profileDir)) {
     New-Item -ItemType Directory -Path $profileDir -Force | Out-Null
 }
 
-# Copy win_profile.ps1
+# Copy win_profile.ps1 with UTF-8 BOM encoding
 $sourceProfile = Join-Path $ScriptDir "win_profile.ps1"
 if (Test-Path $sourceProfile) {
     # Backup existing Profile if it exists
@@ -115,8 +153,11 @@ if (Test-Path $sourceProfile) {
         Write-Host "Backed up existing Profile to: $backupPath" -ForegroundColor Gray
     }
     
-    Copy-Item $sourceProfile $profilePath -Force
-    Write-Host "PowerShell Profile configured" -ForegroundColor Green
+    # Read source with UTF-8 and write with UTF-8 BOM to ensure proper encoding
+    $content = Get-Content $sourceProfile -Raw -Encoding UTF8
+    $utf8Bom = New-Object System.Text.UTF8Encoding $true
+    [System.IO.File]::WriteAllText($profilePath, $content, $utf8Bom)
+    Write-Host "PowerShell Profile configured (UTF-8 BOM)" -ForegroundColor Green
     
     # Add dotfiles reference
     $aliasesPath = Join-Path $RepoRoot "dotfiles\aliases.sh"

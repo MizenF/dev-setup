@@ -180,7 +180,7 @@ function Show-Welcome {
     
     # 显示常用命令
     Write-Host "  常用别名: ll, gs, gc, gp, dcu, dcd" -ForegroundColor Gray
-    Write-Host "  帮助: Get-Help <command>" -ForegroundColor Gray
+    Write-Host "  帮助: Get-Help 命令名" -ForegroundColor Gray
     Write-Host ""
 }
 

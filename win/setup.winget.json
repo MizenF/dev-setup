@@ -39,9 +39,6 @@
         },
         {
           "PackageIdentifier": "Bruno.Bruno"
-        },
-        {
-          "PackageIdentifier": "Anthropic.Claude"
         }
       ],
       "SourceDetails": {

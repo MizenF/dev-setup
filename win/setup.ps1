@@ -16,6 +16,186 @@ Write-Host ""
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $RepoRoot = Split-Path -Parent $ScriptDir
 
+# ===== Virtualization Detection Functions =====
+
+function Test-VirtualizationEnabled {
+    <#
+    .SYNOPSIS
+    Checks if hardware virtualization is enabled in BIOS/UEFI
+    #>
+    try {
+        $hypervisorPresent = (Get-CimInstance -ClassName Win32_ComputerSystem).HypervisorPresent
+        if ($hypervisorPresent) {
+            return $true
+        }
+
+        # Additional check via systeminfo
+        $systemInfo = systeminfo
+        $virtualizationLine = $systemInfo | Select-String "Hyper-V Requirements"
+
+        if ($virtualizationLine) {
+            $nextLines = $systemInfo | Select-String "A hypervisor has been detected"
+            if ($nextLines) {
+                return $true
+            }
+
+            # Check for VM extensions
+            $vmExtensions = $systemInfo | Select-String "VM Monitor Mode Extensions: Yes"
+            if ($vmExtensions) {
+                return $true
+            }
+        }
+
+        return $false
+    } catch {
+        Write-Host "WARNING: Could not determine virtualization status" -ForegroundColor Yellow
+        return $null
+    }
+}
+
+function Test-VirtualMachinePlatformEnabled {
+    <#
+    .SYNOPSIS
+    Checks if VirtualMachinePlatform feature is enabled
+    #>
+    try {
+        $vmPlatform = Get-WindowsOptionalFeature -Online -FeatureName VirtualMachinePlatform -ErrorAction SilentlyContinue
+
+        if ($null -eq $vmPlatform) {
+            return $false
+        }
+
+        return $vmPlatform.State -eq "Enabled"
+    } catch {
+        Write-Host "WARNING: Could not check VirtualMachinePlatform status" -ForegroundColor Yellow
+        return $false
+    }
+}
+
+function Test-HyperVEnabled {
+    <#
+    .SYNOPSIS
+    Checks if Hyper-V feature is enabled
+    #>
+    try {
+        $hyperv = Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V-All -ErrorAction SilentlyContinue
+
+        if ($null -eq $hyperv) {
+            return $false
+        }
+
+        return $hyperv.State -eq "Enabled"
+    } catch {
+        return $false
+    }
+}
+
+function Test-PendingReboot {
+    <#
+    .SYNOPSIS
+    Checks if system has pending reboot for Windows features
+    #>
+    try {
+        # Check Windows Update reboot flag
+        $updateKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired"
+        $cbsKey = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending"
+        $fileRenameKey = "HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager"
+
+        if ((Test-Path $updateKey) -or (Test-Path $cbsKey)) {
+            return $true
+        }
+
+        # Check for pending file rename operations
+        if (Test-Path $fileRenameKey) {
+            $pendingFileRename = Get-ItemProperty -Path $fileRenameKey -Name "PendingFileRenameOperations" -ErrorAction SilentlyContinue
+            if ($null -ne $pendingFileRename) {
+                return $true
+            }
+        }
+
+        return $false
+    } catch {
+        return $false
+    }
+}
+
+function Enable-RequiredVirtualizationFeatures {
+    <#
+    .SYNOPSIS
+    Enables required virtualization features for Docker
+    #>
+    param(
+        [ref]$RebootRequired
+    )
+
+    Write-Host ""
+    Write-Host "Checking virtualization requirements for Docker..." -ForegroundColor Yellow
+
+    $needsReboot = $false
+    $featuresEnabled = $false
+
+    # Check VirtualMachinePlatform
+    $vmPlatformEnabled = Test-VirtualMachinePlatformEnabled
+    if (-not $vmPlatformEnabled) {
+        Write-Host "Enabling VirtualMachinePlatform feature..." -ForegroundColor Gray
+        try {
+            dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
+            $featuresEnabled = $true
+            $needsReboot = $true
+            Write-Host "VirtualMachinePlatform enabled" -ForegroundColor Green
+        } catch {
+            Write-Host "ERROR: Failed to enable VirtualMachinePlatform" -ForegroundColor Red
+            return $false
+        }
+    } else {
+        Write-Host "VirtualMachinePlatform is already enabled" -ForegroundColor Green
+    }
+
+    # Check Hyper-V (optional but recommended)
+    $hypervEnabled = Test-HyperVEnabled
+    if (-not $hypervEnabled) {
+        Write-Host "Note: Hyper-V is not enabled (optional for Docker Desktop)" -ForegroundColor Gray
+    } else {
+        Write-Host "Hyper-V is enabled" -ForegroundColor Green
+    }
+
+    if ($needsReboot) {
+        $RebootRequired.Value = $true
+    }
+
+    return (-not $needsReboot)
+}
+
+# ===== End Virtualization Detection Functions =====
+
+# Initialize reboot tracking variable
+$script:RebootRequired = $false
+
+# Early virtualization check
+Write-Host "Checking system virtualization status..." -ForegroundColor Yellow
+$virtEnabled = Test-VirtualizationEnabled
+
+if ($null -eq $virtEnabled) {
+    Write-Host "Unable to determine virtualization status, continuing with caution..." -ForegroundColor Yellow
+} elseif ($virtEnabled) {
+    Write-Host "Hardware virtualization: Enabled" -ForegroundColor Green
+} else {
+    Write-Host "WARNING: Hardware virtualization appears to be DISABLED in BIOS/UEFI" -ForegroundColor Red
+    Write-Host "   Docker Desktop requires hardware virtualization to be enabled" -ForegroundColor Yellow
+    Write-Host "   Please enable VT-x (Intel) or AMD-V (AMD) in your BIOS/UEFI settings" -ForegroundColor Yellow
+}
+
+# Check if system already has pending reboot
+$pendingReboot = Test-PendingReboot
+if ($pendingReboot) {
+    Write-Host ""
+    Write-Host "WARNING: System has a pending reboot from previous updates" -ForegroundColor Yellow
+    Write-Host "   It is recommended to restart before continuing" -ForegroundColor Yellow
+    $script:RebootRequired = $true
+}
+
+Write-Host ""
+
 # 1. Check and install winget
 Write-Host "Checking winget..." -ForegroundColor Yellow
 try {
@@ -52,13 +232,81 @@ Write-Host "Installing packages (from setup.winget.json)..." -ForegroundColor Ye
 
 $wingetJsonPath = Join-Path $ScriptDir "setup.winget.json"
 if (Test-Path $wingetJsonPath) {
+    # Check if Docker is in the package list
+    $wingetContent = Get-Content $wingetJsonPath -Raw | ConvertFrom-Json
+    $hasDocker = $false
+    foreach ($source in $wingetContent.Sources) {
+        foreach ($package in $source.Packages) {
+            if ($package.PackageIdentifier -like "*Docker*") {
+                $hasDocker = $true
+                break
+            }
+        }
+        if ($hasDocker) { break }
+    }
+
+    # If Docker is present, check virtualization requirements
+    $skipDocker = $false
+    if ($hasDocker) {
+        Write-Host ""
+        Write-Host "Docker Desktop detected in package list" -ForegroundColor Cyan
+
+        # Enable virtualization features if needed
+        $canInstallDocker = Enable-RequiredVirtualizationFeatures -RebootRequired ([ref]$script:RebootRequired)
+
+        if (-not $canInstallDocker -or $script:RebootRequired) {
+            Write-Host ""
+            Write-Host "========================================" -ForegroundColor Red
+            Write-Host "DOCKER INSTALLATION BLOCKED" -ForegroundColor Red
+            Write-Host "========================================" -ForegroundColor Red
+            Write-Host "Reason: System requires restart for virtualization features to take effect" -ForegroundColor Yellow
+            Write-Host ""
+            Write-Host "What was done:" -ForegroundColor Cyan
+            Write-Host "   - VirtualMachinePlatform feature has been enabled" -ForegroundColor Gray
+            Write-Host "   - A system restart is required for changes to take effect" -ForegroundColor Gray
+            Write-Host ""
+            Write-Host "Next steps:" -ForegroundColor Cyan
+            Write-Host "   1. Restart your computer" -ForegroundColor Yellow
+            Write-Host "   2. Run this setup script again to install Docker Desktop" -ForegroundColor Yellow
+            Write-Host ""
+            $skipDocker = $true
+        } else {
+            Write-Host "All virtualization requirements are met" -ForegroundColor Green
+        }
+    }
+
+    # Create modified winget JSON if we need to skip Docker
+    $finalWingetPath = $wingetJsonPath
+    if ($skipDocker) {
+        Write-Host ""
+        Write-Host "Creating temporary package list without Docker..." -ForegroundColor Gray
+
+        # Remove Docker from package list
+        foreach ($source in $wingetContent.Sources) {
+            $source.Packages = @($source.Packages | Where-Object { $_.PackageIdentifier -notlike "*Docker*" })
+        }
+
+        # Save to temporary file
+        $tempWingetPath = Join-Path $env:TEMP "setup.winget.temp.json"
+        $wingetContent | ConvertTo-Json -Depth 10 | Set-Content $tempWingetPath -Encoding UTF8
+        $finalWingetPath = $tempWingetPath
+
+        Write-Host "Docker will be skipped in this installation" -ForegroundColor Yellow
+    }
+
     try {
         # Use winget import command
+        Write-Host ""
         Write-Host "Importing package manifest..." -ForegroundColor Gray
-        winget import -i $wingetJsonPath --accept-package-agreements --accept-source-agreements --ignore-versions
+        winget import -i $finalWingetPath --accept-package-agreements --accept-source-agreements --ignore-versions
         Write-Host "Package installation completed" -ForegroundColor Green
     } catch {
         Write-Host "WARNING: Some packages may have failed to install, please check logs" -ForegroundColor Yellow
+    } finally {
+        # Clean up temporary file if created
+        if ($skipDocker -and (Test-Path $tempWingetPath)) {
+            Remove-Item $tempWingetPath -Force -ErrorAction SilentlyContinue
+        }
     }
 } else {
     Write-Host "WARNING: setup.winget.json not found, skipping package installation" -ForegroundColor Yellow
@@ -196,16 +444,17 @@ if (-not (Test-Path $gitconfigPath)) {
 if ($enableWSL) {
     Write-Host ""
     Write-Host "Initializing WSL2..." -ForegroundColor Yellow
-    
+
     # Check if WSL is enabled
     $wslFeature = Get-WindowsOptionalFeature -Online -FeatureName Microsoft-Windows-Subsystem-Linux
-    
+
     if ($wslFeature.State -ne "Enabled") {
         Write-Host "Enabling WSL feature..." -ForegroundColor Gray
         dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
         dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestart
-        
-        Write-Host "WARNING: Please restart your computer and then run WSL initialization script" -ForegroundColor Yellow
+
+        $script:RebootRequired = $true
+        Write-Host "WSL features enabled (restart required)" -ForegroundColor Yellow
     } else {
         Write-Host "WSL is enabled" -ForegroundColor Green
         Write-Host "   You can run WSL setup script: wsl/setup.sh" -ForegroundColor Gray
@@ -219,12 +468,40 @@ $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";"
 
 # 9. Complete
 Write-Host ""
-Write-Host "Installation completed!" -ForegroundColor Green
+
+# Display reboot status if required
+if ($script:RebootRequired) {
+    Write-Host "========================================" -ForegroundColor Red
+    Write-Host "SYSTEM RESTART REQUIRED" -ForegroundColor Red
+    Write-Host "========================================" -ForegroundColor Red
+    Write-Host ""
+    Write-Host "Why restart is needed:" -ForegroundColor Cyan
+    Write-Host "   - VirtualMachinePlatform feature was enabled" -ForegroundColor Gray
+    Write-Host "   - Windows features require a restart to take effect" -ForegroundColor Gray
+    Write-Host "   - Docker Desktop installation was skipped" -ForegroundColor Gray
+    Write-Host ""
+    Write-Host "After restarting:" -ForegroundColor Cyan
+    Write-Host "   1. System virtualization features will be active" -ForegroundColor Yellow
+    Write-Host "   2. Run this setup script again to install Docker Desktop" -ForegroundColor Yellow
+    Write-Host "   3. Docker Desktop will then install successfully" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "To restart now, run: Restart-Computer" -ForegroundColor Red
+    Write-Host ""
+} else {
+    Write-Host "Installation completed!" -ForegroundColor Green
+}
+
 Write-Host ""
 Write-Host "Next steps:" -ForegroundColor Cyan
-Write-Host "   1. Reopen PowerShell (or run: . `$PROFILE)" -ForegroundColor Gray
-Write-Host "   2. Configure Git user info (if not already configured)" -ForegroundColor Gray
-Write-Host "   3. If using WSL, restart computer and install Linux distribution" -ForegroundColor Gray
+if ($script:RebootRequired) {
+    Write-Host "   1. RESTART YOUR COMPUTER (Required!)" -ForegroundColor Red
+    Write-Host "   2. Run this setup script again to complete Docker installation" -ForegroundColor Yellow
+    Write-Host "   3. Configure Git user info (if not already configured)" -ForegroundColor Gray
+} else {
+    Write-Host "   1. Reopen PowerShell (or run: . `$PROFILE)" -ForegroundColor Gray
+    Write-Host "   2. Configure Git user info (if not already configured)" -ForegroundColor Gray
+    Write-Host "   3. If using WSL, restart computer and install Linux distribution" -ForegroundColor Gray
+}
 Write-Host ""
 Write-Host "Checking installed tool versions:" -ForegroundColor Cyan
 try {
@@ -236,4 +513,20 @@ try {
 try {
     Write-Host "   Git:    $(git --version 2>&1)" -ForegroundColor Gray
 } catch {}
+try {
+    $dockerVersion = docker --version 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "   Docker: $dockerVersion" -ForegroundColor Gray
+    } else {
+        if ($script:RebootRequired) {
+            Write-Host "   Docker: Not installed (will be installed after restart)" -ForegroundColor Yellow
+        } else {
+            Write-Host "   Docker: Not found" -ForegroundColor Gray
+        }
+    }
+} catch {
+    if ($script:RebootRequired) {
+        Write-Host "   Docker: Not installed (will be installed after restart)" -ForegroundColor Yellow
+    }
+}
 Write-Host ""

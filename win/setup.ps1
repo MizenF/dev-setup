@@ -323,6 +323,36 @@ try {
     Write-Host "   You can manually install it later with: irm https://claude.ai/install.ps1 | iex" -ForegroundColor Gray
 }
 
+# 2.6. Install Codex CLI via npm
+Write-Host ""
+Write-Host "Installing Codex CLI (@openai/codex)..." -ForegroundColor Yellow
+$npmCmd = $null
+
+try {
+    $npmCmd = Get-Command npm -ErrorAction SilentlyContinue
+} catch {}
+
+# Fallback to default Node.js installation path if npm not yet in PATH
+if (-not $npmCmd) {
+    $defaultNpm = Join-Path $env:ProgramFiles "nodejs\npm.cmd"
+    if (Test-Path $defaultNpm) {
+        $npmCmd = Get-Item $defaultNpm
+    }
+}
+
+if ($npmCmd) {
+    try {
+        & $npmCmd.Path install -g @openai/codex
+        Write-Host "Codex CLI installed successfully" -ForegroundColor Green
+    } catch {
+        Write-Host "WARNING: Codex CLI installation failed (npm error)" -ForegroundColor Yellow
+        Write-Host "   You can manually install it later with: npm install -g @openai/codex" -ForegroundColor Gray
+    }
+} else {
+    Write-Host "WARNING: npm not found; Codex CLI not installed" -ForegroundColor Yellow
+    Write-Host "   Ensure Node.js/npm is installed and run: npm install -g @openai/codex" -ForegroundColor Gray
+}
+
 # 3. Refresh environment variables (no restart needed)
 Write-Host ""
 Write-Host "Refreshing environment variables..." -ForegroundColor Yellow

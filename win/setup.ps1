@@ -316,11 +316,11 @@ if (Test-Path $wingetJsonPath) {
 Write-Host ""
 Write-Host "Installing Claude Code..." -ForegroundColor Yellow
 try {
-    Invoke-Expression (Invoke-RestMethod -Uri "https://claude.ai/install.ps1")
+    & ([scriptblock]::Create((irm https://claude.ai/install.ps1))) latest
     Write-Host "Claude Code installed successfully" -ForegroundColor Green
 } catch {
     Write-Host "WARNING: Claude Code installation failed" -ForegroundColor Yellow
-    Write-Host "   You can manually install it later with: irm https://claude.ai/install.ps1 | iex" -ForegroundColor Gray
+    Write-Host "   You can manually install it later with: & ([scriptblock]::Create((irm https://claude.ai/install.ps1))) latest" -ForegroundColor Gray
 }
 
 # 2.6. Install Codex CLI via npm

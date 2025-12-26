@@ -40,7 +40,42 @@ else
     echo "⚠️  未找到 Brewfile，跳过软件包安装"
 fi
 
-# 4. 配置 .zshrc
+# 4. 安装 Claude Code
+echo ""
+echo "📦 安装 Claude Code..."
+if command -v claude &> /dev/null; then
+    echo "✅ Claude Code 已安装"
+else
+    echo "正在安装 Claude Code..."
+    curl -fsSL https://claude.ai/install.sh | bash -s latest
+    if command -v claude &> /dev/null; then
+        echo "✅ Claude Code 安装成功"
+    else
+        echo "⚠️  Claude Code 安装可能失败，请手动安装: curl -fsSL https://claude.ai/install.sh | bash -s latest"
+    fi
+fi
+
+# 5. 安装 Codex CLI
+echo ""
+echo "📦 安装 Codex CLI (@openai/codex)..."
+if command -v npm &> /dev/null; then
+    if npm list -g @openai/codex &> /dev/null; then
+        echo "✅ Codex CLI 已安装"
+    else
+        echo "正在安装 Codex CLI..."
+        npm install -g @openai/codex
+        if [ $? -eq 0 ]; then
+            echo "✅ Codex CLI 安装成功"
+        else
+            echo "⚠️  Codex CLI 安装失败，请手动安装: npm install -g @openai/codex"
+        fi
+    fi
+else
+    echo "⚠️  npm 未安装，跳过 Codex CLI 安装"
+    echo "   请先安装 Node.js/npm，然后运行: npm install -g @openai/codex"
+fi
+
+# 6. 配置 .zshrc
 echo ""
 echo "⚙️  配置 zsh..."
 
@@ -69,7 +104,7 @@ else
     echo "✅ mac.zshrc 已存在于 .zshrc"
 fi
 
-# 5. 配置 Git
+# 7. 配置 Git
 echo ""
 echo "⚙️  配置 Git..."
 GITCONFIG="$HOME/.gitconfig"
@@ -87,7 +122,7 @@ else
     echo "✅ .gitconfig 已存在"
 fi
 
-# 6. 完成
+# 8. 完成
 echo ""
 echo "✨ 安装完成！"
 echo ""

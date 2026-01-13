@@ -49,3 +49,4 @@ cask "postman"
 cask "bruno"
 cask "7zip"
 cask "claude"            # Claude Desktop (AI 助手)
+cask "discord"           # Discord 通讯工具

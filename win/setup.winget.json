@@ -39,6 +39,9 @@
         },
         {
           "PackageIdentifier": "Bruno.Bruno"
+        },
+        {
+          "PackageIdentifier": "Discord.Discord"
         }
       ],
       "SourceDetails": {

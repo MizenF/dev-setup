@@ -29,7 +29,7 @@ chmod +x install.sh
 - 前端工具：yarn, pnpm, typescript
 - CLI 工具：ripgrep, fd, bat, eza, fzf, tmux 等
 - 容器工具：Docker, Docker Compose
-- 应用：VSCode, Chrome, iTerm2, Postman, Bruno, Claude Desktop 等
+- 应用：VSCode, Chrome, iTerm2, Postman, Bruno, Claude Desktop, Discord 等
 
 **安装后：**
 ```bash
@@ -57,7 +57,7 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 - Python 3, Node.js, Git
 - Docker Desktop
 - VSCode, Windows Terminal, Oh-My-Posh
-- Yarn, 7zip, Chrome, Postman, Bruno, Claude Desktop
+- Yarn, 7zip, Chrome, Postman, Bruno, Claude Desktop, Discord
 - 自动配置 PowerShell Profile
 
 **可选：启用 WSL2 初始化**

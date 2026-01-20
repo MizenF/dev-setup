@@ -139,6 +139,54 @@ else
     echo "   请先安装 Node.js/npm，然后运行: npm install -g @openai/codex"
 fi
 
+# 5.5. 安装 UE Modding Tools (Repak)
+echo ""
+echo "📦 安装 UE Modding Tools..."
+
+# Repak - .pak 文件打包/解包工具 (Rust CLI, 跨平台)
+REPAK_PATH="$HOME/.local/bin/repak"
+if [ -f "$REPAK_PATH" ]; then
+    echo "✅ Repak 已安装"
+else
+    echo "正在安装 Repak..."
+    mkdir -p "$HOME/.local/bin"
+
+    # 获取最新版本下载链接
+    REPAK_URL=$(curl -s https://api.github.com/repos/trumank/repak/releases/latest | \
+        grep "browser_download_url.*x86_64-unknown-linux-gnu.zip" | \
+        cut -d '"' -f 4)
+
+    if [ -n "$REPAK_URL" ]; then
+        TEMP_ZIP="/tmp/repak.zip"
+        TEMP_DIR="/tmp/repak_extract"
+
+        curl -sL "$REPAK_URL" -o "$TEMP_ZIP"
+        rm -rf "$TEMP_DIR"
+        unzip -q "$TEMP_ZIP" -d "$TEMP_DIR"
+
+        # 查找并复制 repak 可执行文件
+        REPAK_BIN=$(find "$TEMP_DIR" -name "repak" -type f | head -1)
+        if [ -n "$REPAK_BIN" ]; then
+            cp "$REPAK_BIN" "$REPAK_PATH"
+            chmod +x "$REPAK_PATH"
+            echo "✅ Repak 安装成功"
+        else
+            echo "⚠️  Repak 安装失败：未找到可执行文件"
+        fi
+
+        # 清理临时文件
+        rm -f "$TEMP_ZIP"
+        rm -rf "$TEMP_DIR"
+    else
+        echo "⚠️  Repak 安装失败：无法获取下载链接"
+        echo "   请手动从 https://github.com/trumank/repak/releases 下载"
+    fi
+fi
+
+echo ""
+echo "📝 注意: FModel 和 UAssetGUI 仅支持 Windows"
+echo "   如需使用，请在 Windows 环境下运行 win/setup.ps1"
+
 # 6. 配置 .bashrc
 echo ""
 echo "⚙️  配置 .bashrc..."

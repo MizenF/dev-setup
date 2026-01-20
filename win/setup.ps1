@@ -353,6 +353,136 @@ if ($npmCmd) {
     Write-Host "   Ensure Node.js/npm is installed and run: npm install -g @openai/codex" -ForegroundColor Gray
 }
 
+# 2.7. Install UE Modding Tools (FModel, Repak, UAssetGUI)
+Write-Host ""
+Write-Host "Installing UE Modding Tools..." -ForegroundColor Yellow
+
+function Install-GitHubRelease {
+    param(
+        [string]$Repo,
+        [string]$AssetPattern,
+        [string]$ToolName,
+        [string]$DestPath,
+        [bool]$IsZip = $true
+    )
+
+    Write-Host "Installing $ToolName..." -ForegroundColor Gray
+
+    try {
+        # Get latest release info from GitHub API
+        $releaseUrl = "https://api.github.com/repos/$Repo/releases/latest"
+        $release = Invoke-RestMethod -Uri $releaseUrl -Headers @{ "User-Agent" = "PowerShell" }
+
+        # Find matching asset
+        $asset = $release.assets | Where-Object { $_.name -match $AssetPattern } | Select-Object -First 1
+
+        if (-not $asset) {
+            Write-Host "WARNING: No matching asset found for $ToolName" -ForegroundColor Yellow
+            return $false
+        }
+
+        $downloadUrl = $asset.browser_download_url
+        $fileName = $asset.name
+        $tempFile = Join-Path $env:TEMP $fileName
+
+        Write-Host "   Downloading $fileName..." -ForegroundColor Gray
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $tempFile -UseBasicParsing
+
+        # Ensure destination directory exists
+        if (-not (Test-Path $DestPath)) {
+            New-Item -ItemType Directory -Path $DestPath -Force | Out-Null
+        }
+
+        if ($IsZip) {
+            # Extract zip file
+            $extractPath = Join-Path $DestPath $ToolName
+            if (Test-Path $extractPath) {
+                Remove-Item $extractPath -Recurse -Force
+            }
+            Expand-Archive -Path $tempFile -DestinationPath $extractPath -Force
+            Write-Host "   Extracted to: $extractPath" -ForegroundColor Green
+        } else {
+            # Copy single executable
+            $destFile = Join-Path $DestPath $fileName
+            Copy-Item $tempFile $destFile -Force
+            Write-Host "   Saved to: $destFile" -ForegroundColor Green
+        }
+
+        # Cleanup
+        Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+
+        Write-Host "$ToolName installed successfully" -ForegroundColor Green
+        return $true
+    } catch {
+        Write-Host "WARNING: Failed to install $ToolName - $($_.Exception.Message)" -ForegroundColor Yellow
+        return $false
+    }
+}
+
+# Set UE Tools destination path
+$ueToolsPath = $localBinPath
+
+# Install FModel (Windows only, .NET application)
+$fmodelPath = Join-Path $ueToolsPath "FModel"
+if (Test-Path (Join-Path $fmodelPath "FModel.exe")) {
+    Write-Host "FModel is already installed" -ForegroundColor Green
+} else {
+    Install-GitHubRelease -Repo "4sval/FModel" -AssetPattern "FModel\.zip$" -ToolName "FModel" -DestPath $ueToolsPath -IsZip $true
+}
+
+# Install Repak (Rust CLI, cross-platform)
+$repakExe = Join-Path $ueToolsPath "repak.exe"
+if (Test-Path $repakExe) {
+    Write-Host "Repak is already installed" -ForegroundColor Green
+} else {
+    try {
+        Write-Host "Installing Repak..." -ForegroundColor Gray
+        $releaseUrl = "https://api.github.com/repos/trumank/repak/releases/latest"
+        $release = Invoke-RestMethod -Uri $releaseUrl -Headers @{ "User-Agent" = "PowerShell" }
+        $asset = $release.assets | Where-Object { $_.name -match "x86_64-pc-windows-msvc\.zip$" } | Select-Object -First 1
+
+        if ($asset) {
+            $tempFile = Join-Path $env:TEMP $asset.name
+            $tempExtract = Join-Path $env:TEMP "repak_extract"
+
+            Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $tempFile -UseBasicParsing
+
+            if (Test-Path $tempExtract) { Remove-Item $tempExtract -Recurse -Force }
+            Expand-Archive -Path $tempFile -DestinationPath $tempExtract -Force
+
+            # Find and copy repak.exe
+            $repakExeSource = Get-ChildItem -Path $tempExtract -Filter "repak.exe" -Recurse | Select-Object -First 1
+            if ($repakExeSource) {
+                if (-not (Test-Path $ueToolsPath)) {
+                    New-Item -ItemType Directory -Path $ueToolsPath -Force | Out-Null
+                }
+                Copy-Item $repakExeSource.FullName $repakExe -Force
+                Write-Host "Repak installed successfully" -ForegroundColor Green
+            }
+
+            # Cleanup
+            Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+            Remove-Item $tempExtract -Recurse -Force -ErrorAction SilentlyContinue
+        } else {
+            Write-Host "WARNING: No Windows build found for Repak" -ForegroundColor Yellow
+        }
+    } catch {
+        Write-Host "WARNING: Failed to install Repak - $($_.Exception.Message)" -ForegroundColor Yellow
+    }
+}
+
+# Install UAssetGUI (Windows only, .NET application)
+$uassetguiPath = Join-Path $ueToolsPath "UAssetGUI"
+if (Test-Path (Join-Path $uassetguiPath "UAssetGUI.exe")) {
+    Write-Host "UAssetGUI is already installed" -ForegroundColor Green
+} else {
+    Install-GitHubRelease -Repo "atenfyr/UAssetGUI" -AssetPattern "UAssetGUI\.zip$" -ToolName "UAssetGUI" -DestPath $ueToolsPath -IsZip $true
+}
+
+Write-Host ""
+Write-Host "UE Modding Tools installation completed" -ForegroundColor Cyan
+Write-Host "   Tools location: $ueToolsPath" -ForegroundColor Gray
+
 # 3. Refresh environment variables (no restart needed)
 Write-Host ""
 Write-Host "Refreshing environment variables..." -ForegroundColor Yellow

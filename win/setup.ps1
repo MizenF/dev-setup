@@ -670,18 +670,44 @@ Write-Host "Configuring Git..." -ForegroundColor Yellow
 $gitconfigPath = Join-Path $env:USERPROFILE ".gitconfig"
 $sourceGitconfig = Join-Path $RepoRoot "dotfiles\gitconfig"
 
+# Check if git user info is already configured
+$existingName = git config --global user.name 2>$null
+$existingEmail = git config --global user.email 2>$null
+
 if (-not (Test-Path $gitconfigPath)) {
     if (Test-Path $sourceGitconfig) {
         Copy-Item $sourceGitconfig $gitconfigPath
-        Write-Host "Copied gitconfig" -ForegroundColor Green
-        Write-Host "WARNING: Please run the following commands to set Git user info:" -ForegroundColor Yellow
-        Write-Host "   git config --global user.name `"Your Name`"" -ForegroundColor Gray
-        Write-Host "   git config --global user.email `"your.email@example.com`"" -ForegroundColor Gray
+        Write-Host "Copied gitconfig template" -ForegroundColor Green
     } else {
         Write-Host "WARNING: dotfiles\gitconfig not found" -ForegroundColor Yellow
     }
+}
+
+# Configure git user info if not already set
+if ([string]::IsNullOrWhiteSpace($existingName) -or $existingName -eq "YOUR_NAME_HERE") {
+    Write-Host ""
+    $gitName = Read-Host "Enter your Git username (e.g., John Doe)"
+    if (-not [string]::IsNullOrWhiteSpace($gitName)) {
+        git config --global user.name $gitName
+        Write-Host "Git user.name configured: $gitName" -ForegroundColor Green
+    } else {
+        Write-Host "WARNING: Git user.name not set (skipped)" -ForegroundColor Yellow
+    }
 } else {
-    Write-Host ".gitconfig already exists" -ForegroundColor Gray
+    Write-Host "Git user.name already configured: $existingName" -ForegroundColor Gray
+}
+
+if ([string]::IsNullOrWhiteSpace($existingEmail) -or $existingEmail -eq "YOUR_EMAIL_HERE") {
+    Write-Host ""
+    $gitEmail = Read-Host "Enter your Git email (e.g., john@example.com)"
+    if (-not [string]::IsNullOrWhiteSpace($gitEmail)) {
+        git config --global user.email $gitEmail
+        Write-Host "Git user.email configured: $gitEmail" -ForegroundColor Green
+    } else {
+        Write-Host "WARNING: Git user.email not set (skipped)" -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "Git user.email already configured: $existingEmail" -ForegroundColor Gray
 }
 
 # 5. WSL2 initialization (optional)

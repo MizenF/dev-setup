@@ -345,42 +345,56 @@ if (Test-Path $wingetJsonPath) {
 # 2.5. Install Claude Code
 Write-Host ""
 Write-Host "Installing Claude Code..." -ForegroundColor Yellow
-try {
-    & ([scriptblock]::Create((irm https://claude.ai/install.ps1))) latest
-    Write-Host "Claude Code installed successfully" -ForegroundColor Green
-} catch {
-    Write-Host "WARNING: Claude Code installation failed" -ForegroundColor Yellow
-    Write-Host "   You can manually install it later with: & ([scriptblock]::Create((irm https://claude.ai/install.ps1))) latest" -ForegroundColor Gray
+
+# Check if Claude Code is already installed
+$claudeCmd = Get-Command claude -ErrorAction SilentlyContinue
+if ($claudeCmd) {
+    Write-Host "Claude Code is already installed" -ForegroundColor Green
+} else {
+    try {
+        & ([scriptblock]::Create((irm https://claude.ai/install.ps1))) latest
+        Write-Host "Claude Code installed successfully" -ForegroundColor Green
+    } catch {
+        Write-Host "WARNING: Claude Code installation failed" -ForegroundColor Yellow
+        Write-Host "   You can manually install it later with: & ([scriptblock]::Create((irm https://claude.ai/install.ps1))) latest" -ForegroundColor Gray
+    }
 }
 
 # 2.6. Install Codex CLI via npm
 Write-Host ""
 Write-Host "Installing Codex CLI (@openai/codex)..." -ForegroundColor Yellow
-$npmCmd = $null
 
-try {
-    $npmCmd = Get-Command npm -ErrorAction SilentlyContinue
-} catch {}
-
-# Fallback to default Node.js installation path if npm not yet in PATH
-if (-not $npmCmd) {
-    $defaultNpm = Join-Path $env:ProgramFiles "nodejs\npm.cmd"
-    if (Test-Path $defaultNpm) {
-        $npmCmd = Get-Item $defaultNpm
-    }
-}
-
-if ($npmCmd) {
-    try {
-        & $npmCmd.Path install -g @openai/codex
-        Write-Host "Codex CLI installed successfully" -ForegroundColor Green
-    } catch {
-        Write-Host "WARNING: Codex CLI installation failed (npm error)" -ForegroundColor Yellow
-        Write-Host "   You can manually install it later with: npm install -g @openai/codex" -ForegroundColor Gray
-    }
+# Check if Codex CLI is already installed
+$codexCmd = Get-Command codex -ErrorAction SilentlyContinue
+if ($codexCmd) {
+    Write-Host "Codex CLI is already installed" -ForegroundColor Green
 } else {
-    Write-Host "WARNING: npm not found; Codex CLI not installed" -ForegroundColor Yellow
-    Write-Host "   Ensure Node.js/npm is installed and run: npm install -g @openai/codex" -ForegroundColor Gray
+    $npmCmd = $null
+
+    try {
+        $npmCmd = Get-Command npm -ErrorAction SilentlyContinue
+    } catch {}
+
+    # Fallback to default Node.js installation path if npm not yet in PATH
+    if (-not $npmCmd) {
+        $defaultNpm = Join-Path $env:ProgramFiles "nodejs\npm.cmd"
+        if (Test-Path $defaultNpm) {
+            $npmCmd = Get-Item $defaultNpm
+        }
+    }
+
+    if ($npmCmd) {
+        try {
+            & $npmCmd.Path install -g @openai/codex
+            Write-Host "Codex CLI installed successfully" -ForegroundColor Green
+        } catch {
+            Write-Host "WARNING: Codex CLI installation failed (npm error)" -ForegroundColor Yellow
+            Write-Host "   You can manually install it later with: npm install -g @openai/codex" -ForegroundColor Gray
+        }
+    } else {
+        Write-Host "WARNING: npm not found; Codex CLI not installed" -ForegroundColor Yellow
+        Write-Host "   Ensure Node.js/npm is installed and run: npm install -g @openai/codex" -ForegroundColor Gray
+    }
 }
 
 # 2.7. Configure Rust environment

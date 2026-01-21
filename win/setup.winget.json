@@ -42,6 +42,12 @@
         },
         {
           "PackageIdentifier": "Discord.Discord"
+        },
+        {
+          "PackageIdentifier": "Microsoft.VisualStudio.2022.Community"
+        },
+        {
+          "PackageIdentifier": "Rustlang.Rustup"
         }
       ],
       "SourceDetails": {

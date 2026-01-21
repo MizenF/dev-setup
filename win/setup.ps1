@@ -383,7 +383,45 @@ if ($npmCmd) {
     Write-Host "   Ensure Node.js/npm is installed and run: npm install -g @openai/codex" -ForegroundColor Gray
 }
 
-# 2.7. Refresh environment and configure PATH (needed before UE Modding Tools)
+# 2.7. Configure Rust environment
+Write-Host ""
+Write-Host "Configuring Rust environment..." -ForegroundColor Yellow
+
+# Add Cargo bin to PATH
+$cargoBinPath = Join-Path $env:USERPROFILE ".cargo\bin"
+if (Test-Path $cargoBinPath) {
+    $currentPath = [Environment]::GetEnvironmentVariable("Path", "User")
+    if ($currentPath -notlike "*$cargoBinPath*") {
+        [Environment]::SetEnvironmentVariable(
+            "Path",
+            $currentPath + ";" + $cargoBinPath,
+            "User"
+        )
+        Write-Host "Added Cargo bin to PATH: $cargoBinPath" -ForegroundColor Green
+    } else {
+        Write-Host "Cargo bin already in PATH" -ForegroundColor Gray
+    }
+
+    # Refresh PATH for current session
+    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+
+    # Set default toolchain to stable-msvc (Windows MSVC)
+    $rustupCmd = Join-Path $cargoBinPath "rustup.exe"
+    if (Test-Path $rustupCmd) {
+        Write-Host "Setting default Rust toolchain to stable-msvc..." -ForegroundColor Gray
+        try {
+            & $rustupCmd default stable-msvc 2>&1 | Out-Null
+            Write-Host "Rust toolchain configured (stable-msvc)" -ForegroundColor Green
+        } catch {
+            Write-Host "WARNING: Failed to set default toolchain" -ForegroundColor Yellow
+        }
+    }
+} else {
+    Write-Host "Cargo not found yet (will be available after rustup installation completes)" -ForegroundColor Gray
+    Write-Host "   After installation, run: rustup default stable-msvc" -ForegroundColor Gray
+}
+
+# 2.8. Refresh environment and configure PATH
 Write-Host ""
 Write-Host "Refreshing environment variables..." -ForegroundColor Yellow
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
@@ -441,7 +479,7 @@ Add-ToPathIfNotExists $localBinPath
 # Refresh PATH again after adding new paths
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 
-# 2.8. Install UE Modding Tools (FModel, Repak, UAssetGUI)
+# 2.9. Install UE Modding Tools (FModel, Repak, UAssetGUI)
 Write-Host ""
 Write-Host "Installing UE Modding Tools..." -ForegroundColor Yellow
 
@@ -705,6 +743,16 @@ try {
 try {
     Write-Host "   Git:    $(git --version 2>&1)" -ForegroundColor Gray
 } catch {}
+try {
+    $rustVersion = rustc --version 2>&1
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "   Rust:   $rustVersion" -ForegroundColor Gray
+    } else {
+        Write-Host "   Rust:   Not found (run: rustup default stable-msvc)" -ForegroundColor Yellow
+    }
+} catch {
+    Write-Host "   Rust:   Not found (run: rustup default stable-msvc)" -ForegroundColor Yellow
+}
 try {
     $dockerVersion = docker --version 2>&1
     if ($LASTEXITCODE -eq 0) {

@@ -275,15 +275,44 @@ if (Test-Path $wingetJsonPath) {
         }
     }
 
-    # Create modified winget JSON if we need to skip Docker
-    $finalWingetPath = $wingetJsonPath
-    if ($skipDocker) {
-        Write-Host ""
-        Write-Host "Creating temporary package list without Docker..." -ForegroundColor Gray
+    # Check if Chrome is already installed
+    $skipChrome = $false
+    $chromePaths = @(
+        "$env:ProgramFiles\Google\Chrome\Application\chrome.exe",
+        "${env:ProgramFiles(x86)}\Google\Chrome\Application\chrome.exe",
+        "$env:LOCALAPPDATA\Google\Chrome\Application\chrome.exe"
+    )
+    foreach ($chromePath in $chromePaths) {
+        if (Test-Path $chromePath) {
+            $skipChrome = $true
+            Write-Host "Chrome is already installed, skipping..." -ForegroundColor Green
+            break
+        }
+    }
 
-        # Remove Docker from package list
+    # Create modified winget JSON if we need to skip packages
+    $finalWingetPath = $wingetJsonPath
+    $packagesToSkip = @()
+    if ($skipDocker) { $packagesToSkip += "*Docker*" }
+    if ($skipChrome) { $packagesToSkip += "*Chrome*" }
+
+    if ($packagesToSkip.Count -gt 0) {
+        Write-Host ""
+        Write-Host "Creating temporary package list..." -ForegroundColor Gray
+
+        # Remove skipped packages from package list
         foreach ($source in $wingetContent.Sources) {
-            $source.Packages = @($source.Packages | Where-Object { $_.PackageIdentifier -notlike "*Docker*" })
+            $source.Packages = @($source.Packages | Where-Object {
+                $pkg = $_.PackageIdentifier
+                $skip = $false
+                foreach ($pattern in $packagesToSkip) {
+                    if ($pkg -like $pattern) {
+                        $skip = $true
+                        break
+                    }
+                }
+                -not $skip
+            })
         }
 
         # Save to temporary file
@@ -291,7 +320,8 @@ if (Test-Path $wingetJsonPath) {
         $wingetContent | ConvertTo-Json -Depth 10 | Set-Content $tempWingetPath -Encoding UTF8
         $finalWingetPath = $tempWingetPath
 
-        Write-Host "Docker will be skipped in this installation" -ForegroundColor Yellow
+        if ($skipDocker) { Write-Host "   Docker will be skipped (needs reboot)" -ForegroundColor Yellow }
+        if ($skipChrome) { Write-Host "   Chrome will be skipped (already installed)" -ForegroundColor Gray }
     }
 
     try {
@@ -304,7 +334,7 @@ if (Test-Path $wingetJsonPath) {
         Write-Host "WARNING: Some packages may have failed to install, please check logs" -ForegroundColor Yellow
     } finally {
         # Clean up temporary file if created
-        if ($skipDocker -and (Test-Path $tempWingetPath)) {
+        if ($packagesToSkip.Count -gt 0 -and (Test-Path $tempWingetPath)) {
             Remove-Item $tempWingetPath -Force -ErrorAction SilentlyContinue
         }
     }
@@ -353,7 +383,65 @@ if ($npmCmd) {
     Write-Host "   Ensure Node.js/npm is installed and run: npm install -g @openai/codex" -ForegroundColor Gray
 }
 
-# 2.7. Install UE Modding Tools (FModel, Repak, UAssetGUI)
+# 2.7. Refresh environment and configure PATH (needed before UE Modding Tools)
+Write-Host ""
+Write-Host "Refreshing environment variables..." -ForegroundColor Yellow
+$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+
+Write-Host ""
+Write-Host "Configuring PATH..." -ForegroundColor Yellow
+
+function Add-ToPathIfNotExists {
+    param([string]$NewPath)
+
+    if (Test-Path $NewPath) {
+        $currentPath = [Environment]::GetEnvironmentVariable("Path", "User")
+        if ($currentPath -notlike "*$NewPath*") {
+            [Environment]::SetEnvironmentVariable(
+                "Path",
+                $currentPath + ";" + $NewPath,
+                "User"
+            )
+            Write-Host "Added to PATH: $NewPath" -ForegroundColor Green
+        } else {
+            Write-Host "PATH already contains: $NewPath" -ForegroundColor Gray
+        }
+    }
+}
+
+# Python paths
+$pythonPaths = @(
+    "$env:LOCALAPPDATA\Programs\Python\Python*",
+    "$env:LOCALAPPDATA\Programs\Python\Python*\Scripts"
+)
+
+foreach ($pattern in $pythonPaths) {
+    $paths = Get-Item $pattern -ErrorAction SilentlyContinue
+    foreach ($path in $paths) {
+        Add-ToPathIfNotExists $path.FullName
+    }
+}
+
+# Node.js path
+$nodePath = "$env:ProgramFiles\nodejs"
+Add-ToPathIfNotExists $nodePath
+
+# Git path
+$gitPath = "$env:ProgramFiles\Git\cmd"
+Add-ToPathIfNotExists $gitPath
+
+# User local bin path (used for UE Modding Tools and other tools)
+$localBinPath = Join-Path $env:USERPROFILE ".local\bin"
+if (-not (Test-Path $localBinPath)) {
+    New-Item -ItemType Directory -Path $localBinPath -Force | Out-Null
+    Write-Host "Created .local\bin directory" -ForegroundColor Gray
+}
+Add-ToPathIfNotExists $localBinPath
+
+# Refresh PATH again after adding new paths
+$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+
+# 2.8. Install UE Modding Tools (FModel, Repak, UAssetGUI)
 Write-Host ""
 Write-Host "Installing UE Modding Tools..." -ForegroundColor Yellow
 
@@ -483,63 +571,7 @@ Write-Host ""
 Write-Host "UE Modding Tools installation completed" -ForegroundColor Cyan
 Write-Host "   Tools location: $ueToolsPath" -ForegroundColor Gray
 
-# 3. Refresh environment variables (no restart needed)
-Write-Host ""
-Write-Host "Refreshing environment variables..." -ForegroundColor Yellow
-$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-
-# 4. Detect and add common paths to PATH
-Write-Host ""
-Write-Host "Configuring PATH..." -ForegroundColor Yellow
-
-function Add-ToPathIfNotExists {
-    param([string]$NewPath)
-    
-    if (Test-Path $NewPath) {
-        $currentPath = [Environment]::GetEnvironmentVariable("Path", "User")
-        if ($currentPath -notlike "*$NewPath*") {
-            [Environment]::SetEnvironmentVariable(
-                "Path",
-                $currentPath + ";" + $NewPath,
-                "User"
-            )
-            Write-Host "Added to PATH: $NewPath" -ForegroundColor Green
-        } else {
-            Write-Host "PATH already contains: $NewPath" -ForegroundColor Gray
-        }
-    }
-}
-
-# Python paths
-$pythonPaths = @(
-    "$env:LOCALAPPDATA\Programs\Python\Python*",
-    "$env:LOCALAPPDATA\Programs\Python\Python*\Scripts"
-)
-
-foreach ($pattern in $pythonPaths) {
-    $paths = Get-Item $pattern -ErrorAction SilentlyContinue
-    foreach ($path in $paths) {
-        Add-ToPathIfNotExists $path.FullName
-    }
-}
-
-# Node.js path
-$nodePath = "$env:ProgramFiles\nodejs"
-Add-ToPathIfNotExists $nodePath
-
-# Git path
-$gitPath = "$env:ProgramFiles\Git\cmd"
-Add-ToPathIfNotExists $gitPath
-
-# User local bin path
-$localBinPath = Join-Path $env:USERPROFILE ".local\bin"
-if (-not (Test-Path $localBinPath)) {
-    New-Item -ItemType Directory -Path $localBinPath -Force | Out-Null
-    Write-Host "Created .local\bin directory" -ForegroundColor Gray
-}
-Add-ToPathIfNotExists $localBinPath
-
-# 5. Configure PowerShell Profile
+# 3. Configure PowerShell Profile
 Write-Host ""
 Write-Host "Configuring PowerShell Profile..." -ForegroundColor Yellow
 
@@ -579,7 +611,7 @@ if (Test-Path $sourceProfile) {
     Write-Host "WARNING: win_profile.ps1 not found" -ForegroundColor Yellow
 }
 
-# 6. Configure Git
+# 4. Configure Git
 Write-Host ""
 Write-Host "Configuring Git..." -ForegroundColor Yellow
 
@@ -600,7 +632,7 @@ if (-not (Test-Path $gitconfigPath)) {
     Write-Host ".gitconfig already exists" -ForegroundColor Gray
 }
 
-# 7. WSL2 initialization (optional)
+# 5. WSL2 initialization (optional)
 if ($enableWSL) {
     Write-Host ""
     Write-Host "Initializing WSL2..." -ForegroundColor Yellow
@@ -621,12 +653,12 @@ if ($enableWSL) {
     }
 }
 
-# 8. Refresh current session PATH
+# 6. Refresh current session PATH
 Write-Host ""
 Write-Host "Refreshing current session environment variables..." -ForegroundColor Yellow
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 
-# 9. Complete
+# 7. Complete
 Write-Host ""
 
 # Display reboot status if required

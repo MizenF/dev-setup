@@ -342,6 +342,12 @@ if (Test-Path $wingetJsonPath) {
     Write-Host "WARNING: setup.winget.json not found, skipping package installation" -ForegroundColor Yellow
 }
 
+# 2.4. Refresh PATH immediately after winget import
+# This is critical - winget installs add to system PATH but current session doesn't see them
+Write-Host ""
+Write-Host "Refreshing PATH after package installation..." -ForegroundColor Yellow
+$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+
 # 2.5. Install Claude Code
 Write-Host ""
 Write-Host "Installing Claude Code..." -ForegroundColor Yellow
@@ -369,23 +375,26 @@ $codexCmd = Get-Command codex -ErrorAction SilentlyContinue
 if ($codexCmd) {
     Write-Host "Codex CLI is already installed" -ForegroundColor Green
 } else {
-    $npmCmd = $null
+    $npmPath = $null
 
     try {
         $npmCmd = Get-Command npm -ErrorAction SilentlyContinue
+        if ($npmCmd) {
+            $npmPath = $npmCmd.Source
+        }
     } catch {}
 
     # Fallback to default Node.js installation path if npm not yet in PATH
-    if (-not $npmCmd) {
+    if (-not $npmPath) {
         $defaultNpm = Join-Path $env:ProgramFiles "nodejs\npm.cmd"
         if (Test-Path $defaultNpm) {
-            $npmCmd = Get-Item $defaultNpm
+            $npmPath = $defaultNpm
         }
     }
 
-    if ($npmCmd) {
+    if ($npmPath) {
         try {
-            & $npmCmd.Path install -g @openai/codex
+            & $npmPath install -g @openai/codex
             Write-Host "Codex CLI installed successfully" -ForegroundColor Green
         } catch {
             Write-Host "WARNING: Codex CLI installation failed (npm error)" -ForegroundColor Yellow
@@ -393,7 +402,7 @@ if ($codexCmd) {
         }
     } else {
         Write-Host "WARNING: npm not found; Codex CLI not installed" -ForegroundColor Yellow
-        Write-Host "   Ensure Node.js/npm is installed and run: npm install -g @openai/codex" -ForegroundColor Gray
+        Write-Host "   Node.js may still be installing. Run this script again to install Codex CLI." -ForegroundColor Gray
     }
 }
 
@@ -401,38 +410,53 @@ if ($codexCmd) {
 Write-Host ""
 Write-Host "Configuring Rust environment..." -ForegroundColor Yellow
 
-# Add Cargo bin to PATH
 $cargoBinPath = Join-Path $env:USERPROFILE ".cargo\bin"
-if (Test-Path $cargoBinPath) {
-    $currentPath = [Environment]::GetEnvironmentVariable("Path", "User")
-    if ($currentPath -notlike "*$cargoBinPath*") {
-        [Environment]::SetEnvironmentVariable(
-            "Path",
-            $currentPath + ";" + $cargoBinPath,
-            "User"
-        )
-        Write-Host "Added Cargo bin to PATH: $cargoBinPath" -ForegroundColor Green
-    } else {
-        Write-Host "Cargo bin already in PATH" -ForegroundColor Gray
+
+# First, try to find rustup (may be in PATH or default install location)
+$rustupCmd = $null
+try {
+    $rustupCmd = Get-Command rustup -ErrorAction SilentlyContinue
+} catch {}
+
+# Fallback: check default rustup installation path
+if (-not $rustupCmd) {
+    $defaultRustup = Join-Path $cargoBinPath "rustup.exe"
+    if (Test-Path $defaultRustup) {
+        $rustupCmd = Get-Item $defaultRustup
+    }
+}
+
+if ($rustupCmd) {
+    Write-Host "Found rustup, initializing Rust toolchain..." -ForegroundColor Gray
+
+    # Initialize with default stable-msvc toolchain (this creates .cargo\bin if needed)
+    try {
+        & $rustupCmd.Path default stable-msvc 2>&1 | Out-Null
+        Write-Host "Rust toolchain configured (stable-msvc)" -ForegroundColor Green
+    } catch {
+        Write-Host "WARNING: Failed to set default toolchain" -ForegroundColor Yellow
     }
 
-    # Refresh PATH for current session
-    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-
-    # Set default toolchain to stable-msvc (Windows MSVC)
-    $rustupCmd = Join-Path $cargoBinPath "rustup.exe"
-    if (Test-Path $rustupCmd) {
-        Write-Host "Setting default Rust toolchain to stable-msvc..." -ForegroundColor Gray
-        try {
-            & $rustupCmd default stable-msvc 2>&1 | Out-Null
-            Write-Host "Rust toolchain configured (stable-msvc)" -ForegroundColor Green
-        } catch {
-            Write-Host "WARNING: Failed to set default toolchain" -ForegroundColor Yellow
+    # Add Cargo bin to PATH if not already there
+    if (Test-Path $cargoBinPath) {
+        $currentPath = [Environment]::GetEnvironmentVariable("Path", "User")
+        if ($currentPath -notlike "*$cargoBinPath*") {
+            [Environment]::SetEnvironmentVariable(
+                "Path",
+                $currentPath + ";" + $cargoBinPath,
+                "User"
+            )
+            Write-Host "Added Cargo bin to PATH: $cargoBinPath" -ForegroundColor Green
+        } else {
+            Write-Host "Cargo bin already in PATH" -ForegroundColor Gray
         }
+
+        # Refresh PATH for current session
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
     }
 } else {
-    Write-Host "Cargo not found yet (will be available after rustup installation completes)" -ForegroundColor Gray
-    Write-Host "   After installation, run: rustup default stable-msvc" -ForegroundColor Gray
+    Write-Host "WARNING: rustup not found in PATH" -ForegroundColor Yellow
+    Write-Host "   Rust may not have been installed yet. Run the script again after restart." -ForegroundColor Gray
 }
 
 # 2.8. Refresh environment and configure PATH

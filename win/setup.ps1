@@ -348,6 +348,47 @@ Write-Host ""
 Write-Host "Refreshing PATH after package installation..." -ForegroundColor Yellow
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 
+# 2.4.1. Install Visual Studio 2022 Community with specific workloads
+Write-Host ""
+Write-Host "Installing Visual Studio 2022 Community with C++ workloads..." -ForegroundColor Yellow
+
+# Check if VS 2022 Community is already installed
+$vsWhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+$vsInstalled = $false
+
+if (Test-Path $vsWhere) {
+    $vsInfo = & $vsWhere -products Microsoft.VisualStudio.Product.Community -version "[17.0,18.0)" -format json 2>$null | ConvertFrom-Json
+    if ($vsInfo -and $vsInfo.Count -gt 0) {
+        $vsInstalled = $true
+        Write-Host "Visual Studio 2022 Community is already installed" -ForegroundColor Green
+        Write-Host "   To modify workloads, open Visual Studio Installer manually" -ForegroundColor Gray
+    }
+}
+
+if (-not $vsInstalled) {
+    try {
+        # Install with C++ Desktop, Game Development, and Windows 10 SDK
+        # --passive: shows progress but no interaction required
+        # --wait: wait for installation to complete
+        $vsWorkloads = @(
+            "--add Microsoft.VisualStudio.Workload.NativeDesktop",
+            "--add Microsoft.VisualStudio.Workload.NativeGame",
+            "--add Microsoft.VisualStudio.Component.Windows10SDK.19041",
+            "--includeRecommended"
+        ) -join " "
+
+        Write-Host "   Workloads: C++ Desktop, Game Development, Windows 10 SDK (19041)" -ForegroundColor Gray
+        Write-Host "   This may take a while..." -ForegroundColor Gray
+
+        winget install --id Microsoft.VisualStudio.2022.Community --accept-package-agreements --accept-source-agreements --override "--passive --wait $vsWorkloads"
+
+        Write-Host "Visual Studio 2022 Community installed successfully" -ForegroundColor Green
+    } catch {
+        Write-Host "WARNING: Visual Studio installation failed" -ForegroundColor Yellow
+        Write-Host "   You can manually install it from: https://visualstudio.microsoft.com/downloads/" -ForegroundColor Gray
+    }
+}
+
 # 2.5. Install Claude Code
 Write-Host ""
 Write-Host "Installing Claude Code..." -ForegroundColor Yellow

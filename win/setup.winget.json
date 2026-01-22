@@ -44,9 +44,6 @@
           "PackageIdentifier": "Discord.Discord"
         },
         {
-          "PackageIdentifier": "Microsoft.VisualStudio.2022.Community"
-        },
-        {
           "PackageIdentifier": "Microsoft.VisualStudio.2022.BuildTools"
         },
         {

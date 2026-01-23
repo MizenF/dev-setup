@@ -348,7 +348,66 @@ Write-Host ""
 Write-Host "Refreshing PATH after package installation..." -ForegroundColor Yellow
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 
-# 2.4.1. Install Visual Studio 2022 Community with specific workloads
+# 2.4.1. Configure PATH early (before tools that depend on other tools)
+# This ensures Python, Node.js, Git etc. are available for subsequent steps
+Write-Host ""
+Write-Host "Configuring PATH (early setup)..." -ForegroundColor Yellow
+
+function Add-ToPathIfNotExists {
+    param([string]$NewPath)
+
+    if (Test-Path $NewPath) {
+        $currentPath = [Environment]::GetEnvironmentVariable("Path", "User")
+        if ($currentPath -notlike "*$NewPath*") {
+            [Environment]::SetEnvironmentVariable(
+                "Path",
+                $currentPath + ";" + $NewPath,
+                "User"
+            )
+            Write-Host "Added to PATH: $NewPath" -ForegroundColor Green
+            return $true
+        } else {
+            Write-Host "PATH already contains: $NewPath" -ForegroundColor Gray
+        }
+    }
+    return $false
+}
+
+# Python paths
+$pythonPaths = @(
+    "$env:LOCALAPPDATA\Programs\Python\Python*",
+    "$env:LOCALAPPDATA\Programs\Python\Python*\Scripts"
+)
+foreach ($pattern in $pythonPaths) {
+    $paths = Get-Item $pattern -ErrorAction SilentlyContinue
+    foreach ($path in $paths) {
+        Add-ToPathIfNotExists $path.FullName | Out-Null
+    }
+}
+
+# Node.js path
+Add-ToPathIfNotExists "$env:ProgramFiles\nodejs" | Out-Null
+
+# Git path
+Add-ToPathIfNotExists "$env:ProgramFiles\Git\cmd" | Out-Null
+
+# User local bin path (used for UE Modding Tools and other tools)
+$localBinPath = Join-Path $env:USERPROFILE ".local\bin"
+if (-not (Test-Path $localBinPath)) {
+    New-Item -ItemType Directory -Path $localBinPath -Force | Out-Null
+    Write-Host "Created .local\bin directory" -ForegroundColor Gray
+}
+Add-ToPathIfNotExists $localBinPath | Out-Null
+
+# Cargo bin path (for Rust)
+$cargoBinPath = Join-Path $env:USERPROFILE ".cargo\bin"
+Add-ToPathIfNotExists $cargoBinPath | Out-Null
+
+# Refresh PATH again after adding new paths
+$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+Write-Host "PATH configuration completed" -ForegroundColor Green
+
+# 2.4.2. Install Visual Studio 2022 Community with specific workloads
 Write-Host ""
 Write-Host "Installing Visual Studio 2022 Community with C++ workloads..." -ForegroundColor Yellow
 
@@ -451,114 +510,40 @@ if ($codexCmd) {
 Write-Host ""
 Write-Host "Configuring Rust environment..." -ForegroundColor Yellow
 
-$cargoBinPath = Join-Path $env:USERPROFILE ".cargo\bin"
-
-# First, try to find rustup (may be in PATH or default install location)
-$rustupCmd = $null
-try {
-    $rustupCmd = Get-Command rustup -ErrorAction SilentlyContinue
-} catch {}
+# Find rustup executable path
+$rustupPath = $null
+$rustupCmd = Get-Command rustup -ErrorAction SilentlyContinue
+if ($rustupCmd) {
+    $rustupPath = $rustupCmd.Source
+}
 
 # Fallback: check default rustup installation path
-if (-not $rustupCmd) {
-    $defaultRustup = Join-Path $cargoBinPath "rustup.exe"
+if (-not $rustupPath) {
+    $defaultRustup = Join-Path $env:USERPROFILE ".cargo\bin\rustup.exe"
     if (Test-Path $defaultRustup) {
-        $rustupCmd = Get-Item $defaultRustup
+        $rustupPath = $defaultRustup
     }
 }
 
-if ($rustupCmd) {
+if ($rustupPath) {
     Write-Host "Found rustup, initializing Rust toolchain..." -ForegroundColor Gray
 
-    # Initialize with default stable-msvc toolchain (this creates .cargo\bin if needed)
+    # Initialize with default stable-msvc toolchain
     try {
-        & $rustupCmd.Path default stable-msvc 2>&1 | Out-Null
+        & $rustupPath default stable-msvc 2>&1 | Out-Null
         Write-Host "Rust toolchain configured (stable-msvc)" -ForegroundColor Green
     } catch {
         Write-Host "WARNING: Failed to set default toolchain" -ForegroundColor Yellow
     }
 
-    # Add Cargo bin to PATH if not already there
-    if (Test-Path $cargoBinPath) {
-        $currentPath = [Environment]::GetEnvironmentVariable("Path", "User")
-        if ($currentPath -notlike "*$cargoBinPath*") {
-            [Environment]::SetEnvironmentVariable(
-                "Path",
-                $currentPath + ";" + $cargoBinPath,
-                "User"
-            )
-            Write-Host "Added Cargo bin to PATH: $cargoBinPath" -ForegroundColor Green
-        } else {
-            Write-Host "Cargo bin already in PATH" -ForegroundColor Gray
-        }
-
-        # Refresh PATH for current session
-        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-    }
+    # Refresh PATH for current session (Cargo bin was added in early PATH config)
+    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 } else {
-    Write-Host "WARNING: rustup not found in PATH" -ForegroundColor Yellow
-    Write-Host "   Rust may not have been installed yet. Run the script again after restart." -ForegroundColor Gray
+    Write-Host "WARNING: rustup not found" -ForegroundColor Yellow
+    Write-Host "   Rust may still be installing. Run this script again to configure Rust." -ForegroundColor Gray
 }
 
-# 2.8. Refresh environment and configure PATH
-Write-Host ""
-Write-Host "Refreshing environment variables..." -ForegroundColor Yellow
-$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-
-Write-Host ""
-Write-Host "Configuring PATH..." -ForegroundColor Yellow
-
-function Add-ToPathIfNotExists {
-    param([string]$NewPath)
-
-    if (Test-Path $NewPath) {
-        $currentPath = [Environment]::GetEnvironmentVariable("Path", "User")
-        if ($currentPath -notlike "*$NewPath*") {
-            [Environment]::SetEnvironmentVariable(
-                "Path",
-                $currentPath + ";" + $NewPath,
-                "User"
-            )
-            Write-Host "Added to PATH: $NewPath" -ForegroundColor Green
-        } else {
-            Write-Host "PATH already contains: $NewPath" -ForegroundColor Gray
-        }
-    }
-}
-
-# Python paths
-$pythonPaths = @(
-    "$env:LOCALAPPDATA\Programs\Python\Python*",
-    "$env:LOCALAPPDATA\Programs\Python\Python*\Scripts"
-)
-
-foreach ($pattern in $pythonPaths) {
-    $paths = Get-Item $pattern -ErrorAction SilentlyContinue
-    foreach ($path in $paths) {
-        Add-ToPathIfNotExists $path.FullName
-    }
-}
-
-# Node.js path
-$nodePath = "$env:ProgramFiles\nodejs"
-Add-ToPathIfNotExists $nodePath
-
-# Git path
-$gitPath = "$env:ProgramFiles\Git\cmd"
-Add-ToPathIfNotExists $gitPath
-
-# User local bin path (used for UE Modding Tools and other tools)
-$localBinPath = Join-Path $env:USERPROFILE ".local\bin"
-if (-not (Test-Path $localBinPath)) {
-    New-Item -ItemType Directory -Path $localBinPath -Force | Out-Null
-    Write-Host "Created .local\bin directory" -ForegroundColor Gray
-}
-Add-ToPathIfNotExists $localBinPath
-
-# Refresh PATH again after adding new paths
-$env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-
-# 2.9. Install UE Modding Tools (FModel, Repak, UAssetGUI)
+# 2.8. Install UE Modding Tools (FModel, Repak, UAssetGUI)
 Write-Host ""
 Write-Host "Installing UE Modding Tools..." -ForegroundColor Yellow
 
@@ -688,6 +673,55 @@ Write-Host ""
 Write-Host "UE Modding Tools installation completed" -ForegroundColor Cyan
 Write-Host "   Tools location: $ueToolsPath" -ForegroundColor Gray
 
+# 2.9. Install VS Code Extensions
+Write-Host ""
+Write-Host "Installing VS Code extensions..." -ForegroundColor Yellow
+
+# Find VS Code executable path
+$codePath = $null
+
+# Try Get-Command first (if in PATH)
+$codeCmd = Get-Command code -ErrorAction SilentlyContinue
+if ($codeCmd) {
+    $codePath = $codeCmd.Source
+}
+
+# Fallback: Try default installation paths
+if (-not $codePath) {
+    $defaultCodePaths = @(
+        "$env:LOCALAPPDATA\Programs\Microsoft VS Code\bin\code.cmd",
+        "$env:ProgramFiles\Microsoft VS Code\bin\code.cmd"
+    )
+    foreach ($path in $defaultCodePaths) {
+        if (Test-Path $path) {
+            $codePath = $path
+            break
+        }
+    }
+}
+
+if ($codePath) {
+    $vsCodeExtensions = @(
+        "saoudrizwan.claude-dev",      # Cline (AI assistant)
+        "ms-vscode-remote.remote-ssh"  # Remote SSH
+    )
+
+    foreach ($ext in $vsCodeExtensions) {
+        Write-Host "   Installing/updating: $ext" -ForegroundColor Gray
+        try {
+            # --force ensures update if already installed
+            & $codePath --install-extension $ext --force 2>&1 | Out-Null
+            Write-Host "   $ext - OK" -ForegroundColor Green
+        } catch {
+            Write-Host "   WARNING: Failed to install $ext" -ForegroundColor Yellow
+        }
+    }
+    Write-Host "VS Code extensions installation completed" -ForegroundColor Green
+} else {
+    Write-Host "WARNING: VS Code not found, skipping extensions installation" -ForegroundColor Yellow
+    Write-Host "   Extensions can be installed later via: code --install-extension <id>" -ForegroundColor Gray
+}
+
 # 3. Configure PowerShell Profile
 Write-Host ""
 Write-Host "Configuring PowerShell Profile..." -ForegroundColor Yellow
@@ -732,47 +766,67 @@ if (Test-Path $sourceProfile) {
 Write-Host ""
 Write-Host "Configuring Git..." -ForegroundColor Yellow
 
-$gitconfigPath = Join-Path $env:USERPROFILE ".gitconfig"
-$sourceGitconfig = Join-Path $RepoRoot "dotfiles\gitconfig"
+# Find Git executable path
+$gitPath = $null
+$gitCmd = Get-Command git -ErrorAction SilentlyContinue
+if ($gitCmd) {
+    $gitPath = $gitCmd.Source
+}
 
-# Check if git user info is already configured
-$existingName = git config --global user.name 2>$null
-$existingEmail = git config --global user.email 2>$null
-
-if (-not (Test-Path $gitconfigPath)) {
-    if (Test-Path $sourceGitconfig) {
-        Copy-Item $sourceGitconfig $gitconfigPath
-        Write-Host "Copied gitconfig template" -ForegroundColor Green
-    } else {
-        Write-Host "WARNING: dotfiles\gitconfig not found" -ForegroundColor Yellow
+# Fallback: Try default installation path
+if (-not $gitPath) {
+    $defaultGitPath = "$env:ProgramFiles\Git\cmd\git.exe"
+    if (Test-Path $defaultGitPath) {
+        $gitPath = $defaultGitPath
     }
 }
 
-# Configure git user info if not already set
-if ([string]::IsNullOrWhiteSpace($existingName) -or $existingName -eq "YOUR_NAME_HERE") {
-    Write-Host ""
-    $gitName = Read-Host "Enter your Git username (e.g., John Doe)"
-    if (-not [string]::IsNullOrWhiteSpace($gitName)) {
-        git config --global user.name $gitName
-        Write-Host "Git user.name configured: $gitName" -ForegroundColor Green
-    } else {
-        Write-Host "WARNING: Git user.name not set (skipped)" -ForegroundColor Yellow
-    }
+if (-not $gitPath) {
+    Write-Host "WARNING: Git not found, skipping Git configuration" -ForegroundColor Yellow
+    Write-Host "   Git may still be installing. Run this script again to configure Git." -ForegroundColor Gray
 } else {
-    Write-Host "Git user.name already configured: $existingName" -ForegroundColor Gray
-}
+    $gitconfigPath = Join-Path $env:USERPROFILE ".gitconfig"
+    $sourceGitconfig = Join-Path $RepoRoot "dotfiles\gitconfig"
 
-if ([string]::IsNullOrWhiteSpace($existingEmail) -or $existingEmail -eq "YOUR_EMAIL_HERE") {
-    Write-Host ""
-    $gitEmail = Read-Host "Enter your Git email (e.g., john@example.com)"
-    if (-not [string]::IsNullOrWhiteSpace($gitEmail)) {
-        git config --global user.email $gitEmail
-        Write-Host "Git user.email configured: $gitEmail" -ForegroundColor Green
-    } else {
-        Write-Host "WARNING: Git user.email not set (skipped)" -ForegroundColor Yellow
+    # Check if git user info is already configured
+    $existingName = & $gitPath config --global user.name 2>$null
+    $existingEmail = & $gitPath config --global user.email 2>$null
+
+    if (-not (Test-Path $gitconfigPath)) {
+        if (Test-Path $sourceGitconfig) {
+            Copy-Item $sourceGitconfig $gitconfigPath
+            Write-Host "Copied gitconfig template" -ForegroundColor Green
+        } else {
+            Write-Host "WARNING: dotfiles\gitconfig not found" -ForegroundColor Yellow
+        }
     }
-} else {
-    Write-Host "Git user.email already configured: $existingEmail" -ForegroundColor Gray
+
+    # Configure git user info if not already set
+    if ([string]::IsNullOrWhiteSpace($existingName) -or $existingName -eq "YOUR_NAME_HERE") {
+        Write-Host ""
+        $gitName = Read-Host "Enter your Git username (e.g., John Doe)"
+        if (-not [string]::IsNullOrWhiteSpace($gitName)) {
+            & $gitPath config --global user.name $gitName
+            Write-Host "Git user.name configured: $gitName" -ForegroundColor Green
+        } else {
+            Write-Host "WARNING: Git user.name not set (skipped)" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "Git user.name already configured: $existingName" -ForegroundColor Gray
+    }
+
+    if ([string]::IsNullOrWhiteSpace($existingEmail) -or $existingEmail -eq "YOUR_EMAIL_HERE") {
+        Write-Host ""
+        $gitEmail = Read-Host "Enter your Git email (e.g., john@example.com)"
+        if (-not [string]::IsNullOrWhiteSpace($gitEmail)) {
+            & $gitPath config --global user.email $gitEmail
+            Write-Host "Git user.email configured: $gitEmail" -ForegroundColor Green
+        } else {
+            Write-Host "WARNING: Git user.email not set (skipped)" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "Git user.email already configured: $existingEmail" -ForegroundColor Gray
+    }
 }
 
 # 5. WSL2 initialization (optional)

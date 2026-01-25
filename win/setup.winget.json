@@ -48,6 +48,9 @@
         },
         {
           "PackageIdentifier": "Rustlang.Rustup"
+        },
+        {
+          "PackageIdentifier": "Google.Antigravity"
         }
       ],
       "SourceDetails": {

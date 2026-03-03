@@ -51,6 +51,12 @@
         },
         {
           "PackageIdentifier": "Google.Antigravity"
+        },
+        {
+          "PackageIdentifier": "GitHub.cli"
+        },
+        {
+          "PackageIdentifier": "OpenWhisperSystems.Signal"
         }
       ],
       "SourceDetails": {

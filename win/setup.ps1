@@ -913,6 +913,11 @@ try {
     Write-Host "   Rust:   Not found (run: rustup default stable-msvc)" -ForegroundColor Yellow
 }
 try {
+    Write-Host "   GitHub CLI: $(gh --version 2>&1 | Select-Object -First 1)" -ForegroundColor Gray
+} catch {
+    Write-Host "   GitHub CLI: Not found" -ForegroundColor Gray
+}
+try {
     $dockerVersion = docker --version 2>&1
     if ($LASTEXITCODE -eq 0) {
         Write-Host "   Docker: $dockerVersion" -ForegroundColor Gray

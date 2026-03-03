@@ -32,6 +32,7 @@ brew "jq"             # JSON 处理器
 brew "yq"             # YAML 处理器
 brew "neofetch"       # 系统信息显示
 brew "tree"           # 目录树显示
+brew "gh"             # GitHub CLI
 
 # ============================================
 # 容器 / 工具
@@ -51,3 +52,4 @@ cask "7zip"
 cask "claude"            # Claude Desktop (AI 助手)
 cask "discord"           # Discord 通讯工具
 cask "antigravity"       # Google Antigravity IDE (AI 编程平台)
+cask "signal"            # Signal 加密通讯

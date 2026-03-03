@@ -97,6 +97,18 @@ else
     echo "✅ yq 已安装"
 fi
 
+# GitHub CLI
+if ! command -v gh &> /dev/null; then
+    echo "正在安装 GitHub CLI..."
+    curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | sudo dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg 2>/dev/null
+    sudo chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | sudo tee /etc/apt/sources.list.d/github-cli.list > /dev/null
+    sudo apt update -y
+    sudo apt install -y gh
+else
+    echo "✅ GitHub CLI 已安装"
+fi
+
 # 其他实用工具
 echo ""
 echo "📦 安装其他实用工具..."
@@ -184,8 +196,8 @@ else
 fi
 
 echo ""
-echo "📝 注意: FModel 和 UAssetGUI 仅支持 Windows"
-echo "   如需使用，请在 Windows 环境下运行 win/setup.ps1"
+echo "📝 注意: FModel、UAssetGUI 和 Signal 仅支持 Windows/macOS 桌面环境"
+echo "   如需使用，请在 Windows 下运行 win/setup.ps1 或 macOS 下运行 mac/install.sh"
 
 # 6. 配置 .bashrc
 echo ""
@@ -263,5 +275,6 @@ echo "   Python:  $(python3 --version 2>&1)"
 echo "   Node:    $(node --version 2>&1)"
 echo "   npm:     $(npm --version 2>&1)"
 echo "   Git:     $(git --version 2>&1)"
+echo "   GitHub CLI: $(gh --version 2>&1 | head -1)"
 echo ""
 echo "🎉 WSL 开发环境配置完成！"

@@ -466,6 +466,41 @@ if ($claudeCmd) {
     }
 }
 
+# 2.5.1. Install Claude Code Plugins
+Write-Host ""
+Write-Host "Installing Claude Code plugins..." -ForegroundColor Yellow
+
+$claudeCmd = Get-Command claude -ErrorAction SilentlyContinue
+if ($claudeCmd) {
+    $claudePlugins = @(
+        "commit-commands",
+        "code-review",
+        "code-simplifier",
+        "feature-dev",
+        "frontend-design",
+        "security-guidance",
+        "ralph-loop",
+        "superpowers",
+        "typescript-lsp",
+        "context7",
+        "github",
+        "supabase"
+    )
+
+    foreach ($plugin in $claudePlugins) {
+        try {
+            Write-Host "   Installing: $plugin" -ForegroundColor Gray
+            & claude plugin install "${plugin}@claude-plugins-official" --scope user 2>&1 | Out-Null
+            Write-Host "   $plugin - OK" -ForegroundColor Green
+        } catch {
+            Write-Host "   WARNING: Failed to install $plugin" -ForegroundColor Yellow
+        }
+    }
+    Write-Host "Claude Code plugins installation completed" -ForegroundColor Green
+} else {
+    Write-Host "WARNING: Claude Code not found, skipping plugin installation" -ForegroundColor Yellow
+}
+
 # 2.6. Install Codex CLI via npm
 Write-Host ""
 Write-Host "Installing Codex CLI (@openai/codex)..." -ForegroundColor Yellow

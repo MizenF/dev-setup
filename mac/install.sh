@@ -55,6 +55,37 @@ else
     fi
 fi
 
+# 4.1. 安装 Claude Code 插件
+echo ""
+echo "📦 安装 Claude Code 插件..."
+
+if command -v claude &> /dev/null; then
+    CLAUDE_PLUGINS=(
+        "commit-commands"
+        "code-review"
+        "code-simplifier"
+        "feature-dev"
+        "frontend-design"
+        "security-guidance"
+        "ralph-loop"
+        "superpowers"
+        "typescript-lsp"
+        "context7"
+        "github"
+        "supabase"
+    )
+
+    for plugin in "${CLAUDE_PLUGINS[@]}"; do
+        echo "   安装: $plugin"
+        claude plugin install "${plugin}@claude-plugins-official" --scope user 2>/dev/null && \
+            echo "   ✅ $plugin" || \
+            echo "   ⚠️  $plugin 安装失败"
+    done
+    echo "✅ Claude Code 插件安装完成"
+else
+    echo "⚠️  Claude Code 未安装，跳过插件安装"
+fi
+
 # 5. 安装 Codex CLI
 echo ""
 echo "📦 安装 Codex CLI (@openai/codex)..."

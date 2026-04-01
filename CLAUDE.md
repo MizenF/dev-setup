@@ -70,8 +70,15 @@ The architecture follows a hub-and-spoke pattern where dotfiles are the central 
 
 ## Installed Tools Categories
 
-- **Languages:** Python 3, Node.js, OpenJDK 17, Rust
+- **Languages:** Python 3, Node.js, OpenJDK 17
 - **CLI utilities:** ripgrep, fd, fzf, jq, yq, bat, eza, httpie
 - **Containers:** Docker, Docker Compose
 - **Apps:** VSCode, Chrome, Windows Terminal/iTerm2, Claude Desktop
-- **Windows-specific:** Visual Studio Build Tools, UE Modding Tools (Repak, FModel, UAssetGUI)
+
+## Optional Extended Installation
+
+After base setup completes, users are prompted to optionally install gaming/UE modding tools:
+- **Windows:** VS 2022 Community (C++/Game workloads), Rust toolchain, FModel, Repak, UAssetGUI
+- **WSL:** Repak
+
+These tools are NOT installed by default. The prompt defaults to No.

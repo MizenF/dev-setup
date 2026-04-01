@@ -182,53 +182,73 @@ else
     echo "   请先安装 Node.js/npm，然后运行: npm install -g @openai/codex"
 fi
 
-# 5.5. 安装 UE Modding Tools (Repak)
-echo ""
-echo "📦 安装 UE Modding Tools..."
+# ===== Optional: Gaming / UE Modding Tools =====
+install_gaming_tools() {
+    echo ""
+    echo "========================================"
+    echo "  扩展安装: UE Modding 工具"
+    echo "========================================"
+    echo ""
 
-# Repak - .pak 文件打包/解包工具 (Rust CLI, 跨平台)
-REPAK_PATH="$HOME/.local/bin/repak"
-if [ -f "$REPAK_PATH" ]; then
-    echo "✅ Repak 已安装"
-else
-    echo "正在安装 Repak..."
-    mkdir -p "$HOME/.local/bin"
-
-    # 获取最新版本下载链接
-    REPAK_URL=$(curl -s https://api.github.com/repos/trumank/repak/releases/latest | \
-        grep "browser_download_url.*x86_64-unknown-linux-gnu.zip" | \
-        cut -d '"' -f 4)
-
-    if [ -n "$REPAK_URL" ]; then
-        TEMP_ZIP="/tmp/repak.zip"
-        TEMP_DIR="/tmp/repak_extract"
-
-        curl -sL "$REPAK_URL" -o "$TEMP_ZIP"
-        rm -rf "$TEMP_DIR"
-        unzip -q "$TEMP_ZIP" -d "$TEMP_DIR"
-
-        # 查找并复制 repak 可执行文件
-        REPAK_BIN=$(find "$TEMP_DIR" -name "repak" -type f | head -1)
-        if [ -n "$REPAK_BIN" ]; then
-            cp "$REPAK_BIN" "$REPAK_PATH"
-            chmod +x "$REPAK_PATH"
-            echo "✅ Repak 安装成功"
-        else
-            echo "⚠️  Repak 安装失败：未找到可执行文件"
-        fi
-
-        # 清理临时文件
-        rm -f "$TEMP_ZIP"
-        rm -rf "$TEMP_DIR"
+    # Repak - .pak 文件打包/解包工具 (Rust CLI, 跨平台)
+    REPAK_PATH="$HOME/.local/bin/repak"
+    if [ -f "$REPAK_PATH" ]; then
+        echo "✅ Repak 已安装"
     else
-        echo "⚠️  Repak 安装失败：无法获取下载链接"
-        echo "   请手动从 https://github.com/trumank/repak/releases 下载"
-    fi
-fi
+        echo "正在安装 Repak..."
+        mkdir -p "$HOME/.local/bin"
 
+        REPAK_URL=$(curl -s https://api.github.com/repos/trumank/repak/releases/latest | \
+            grep "browser_download_url.*x86_64-unknown-linux-gnu.zip" | \
+            cut -d '"' -f 4)
+
+        if [ -n "$REPAK_URL" ]; then
+            TEMP_ZIP="/tmp/repak.zip"
+            TEMP_DIR="/tmp/repak_extract"
+
+            curl -sL "$REPAK_URL" -o "$TEMP_ZIP"
+            rm -rf "$TEMP_DIR"
+            unzip -q "$TEMP_ZIP" -d "$TEMP_DIR"
+
+            REPAK_BIN=$(find "$TEMP_DIR" -name "repak" -type f | head -1)
+            if [ -n "$REPAK_BIN" ]; then
+                cp "$REPAK_BIN" "$REPAK_PATH"
+                chmod +x "$REPAK_PATH"
+                echo "✅ Repak 安装成功"
+            else
+                echo "⚠️  Repak 安装失败：未找到可执行文件"
+            fi
+
+            rm -f "$TEMP_ZIP"
+            rm -rf "$TEMP_DIR"
+        else
+            echo "⚠️  Repak 安装失败：无法获取下载链接"
+            echo "   请手动从 https://github.com/trumank/repak/releases 下载"
+        fi
+    fi
+
+    echo ""
+    echo "📝 注意: FModel、UAssetGUI 和 Signal 仅支持 Windows/macOS 桌面环境"
+    echo "   如需使用，请在 Windows 下运行 win/setup.ps1 或 macOS 下运行 mac/install.sh"
+    echo ""
+    echo "✅ UE Modding 工具安装完成"
+}
+
+# ===== Optional Extended Installation =====
 echo ""
-echo "📝 注意: FModel、UAssetGUI 和 Signal 仅支持 Windows/macOS 桌面环境"
-echo "   如需使用，请在 Windows 下运行 win/setup.ps1 或 macOS 下运行 mac/install.sh"
+echo "========================================"
+echo "  ✅ 基础安装已完成"
+echo "========================================"
+echo ""
+echo "可选扩展: UE Modding 工具包 (Repak)"
+echo "  用于 .pak 文件打包/解包"
+echo ""
+read -p "是否进行扩展安装？[N/y] (默认: N): " extended_choice
+if [ "$extended_choice" = "y" ] || [ "$extended_choice" = "Y" ]; then
+    install_gaming_tools
+else
+    echo "已跳过扩展安装"
+fi
 
 # 6. 配置 .bashrc
 echo ""

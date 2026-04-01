@@ -57,16 +57,15 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 
 | 分类 | 工具 |
 |------|------|
-| 语言 & 运行时 | Python 3, Node.js, OpenJDK 17, Rust |
+| 语言 & 运行时 | Python 3, Node.js, OpenJDK 17 |
 | 版本控制 | Git |
 | 容器 | Docker Desktop |
-| IDE & 编辑器 | VSCode, Visual Studio 2022 Community (C++ workloads) |
+| IDE & 编辑器 | VSCode |
 | 终端 | Windows Terminal, Oh-My-Posh |
 | AI 工具 | Claude Desktop, Claude Code CLI, Codex CLI |
 | CLI 工具 | ripgrep, fd, fzf, jq, yq, bat, eza, httpie |
 | 前端工具 | Yarn, pnpm |
 | 应用 | Chrome, Postman, Bruno, Discord, 7zip |
-| UE Modding | FModel, Repak, UAssetGUI |
 | VS Code 插件 | Cline (AI assistant), Remote SSH |
 
 **安装流程：**
@@ -74,13 +73,23 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 1. 检查系统虚拟化状态
 2. 通过 winget 安装软件包
 3. 配置 PATH 环境变量
-4. 安装 Visual Studio 2022 Community（含 C++ 桌面开发、游戏开发工作负载）
-5. 安装 AI CLI 工具（Claude Code、Codex）
-6. 配置 Rust 工具链（stable-msvc）
-7. 安装 UE Modding 工具
-8. 安装 VS Code 插件
-9. 配置 PowerShell Profile
-10. 交互式配置 Git 用户信息
+4. 安装 AI CLI 工具（Claude Code、Codex）
+5. **询问是否进行扩展安装**（默认跳过，详见下方）
+6. 安装 VS Code 插件
+7. 配置 PowerShell Profile
+8. 交互式配置 Git 用户信息
+
+**可选扩展安装（UE 游戏开发 / Modding 工具）：**
+
+基础安装完成后会提示是否进行扩展安装，默认为否。选择是则安装：
+
+| 工具 | 说明 |
+|------|------|
+| Visual Studio 2022 Community | C++ 桌面开发 + 游戏开发工作负载 |
+| Rust 工具链 | stable-msvc |
+| FModel | UE 资源查看/提取 |
+| Repak | .pak 文件打包/解包 |
+| UAssetGUI | UAsset 文件编辑 |
 
 **可选：启用 WSL2 初始化**
 
@@ -115,7 +124,10 @@ chmod +x setup.sh
 **安装内容：**
 - Python3, Node.js, Git
 - CLI 工具：ripgrep, fd, fzf, jq, yq
+- AI 工具：Claude Code, Codex CLI
 - 自动配置 .bashrc
+
+基础安装完成后会提示是否进行扩展安装（UE Modding 工具 Repak），默认为否。
 
 **安装后：**
 ```bash
@@ -185,7 +197,7 @@ git config --global user.email "your.email@example.com"
    - 必须以**管理员身份**运行 PowerShell
    - Docker 需要硬件虚拟化支持（VT-x/AMD-V），请在 BIOS 中启用
    - 首次安装可能需要重启以启用 VirtualMachinePlatform，重启后再次运行脚本
-   - Visual Studio 安装较慢，请耐心等待
+   - 选择扩展安装时，Visual Studio 安装较慢，请耐心等待
 3. **WSL**: 首次安装需执行 `source ~/.bashrc` 刷新环境
 4. 所有脚本支持**幂等执行**（可重复运行），智能检测已安装的工具并跳过
 

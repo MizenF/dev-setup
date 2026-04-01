@@ -44,12 +44,6 @@
           "PackageIdentifier": "Discord.Discord"
         },
         {
-          "PackageIdentifier": "Microsoft.VisualStudio.2022.BuildTools"
-        },
-        {
-          "PackageIdentifier": "Rustlang.Rustup"
-        },
-        {
           "PackageIdentifier": "Google.Antigravity"
         },
         {

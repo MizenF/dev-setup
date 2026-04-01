@@ -391,7 +391,7 @@ Add-ToPathIfNotExists "$env:ProgramFiles\nodejs" | Out-Null
 # Git path
 Add-ToPathIfNotExists "$env:ProgramFiles\Git\cmd" | Out-Null
 
-# User local bin path (used for UE Modding Tools and other tools)
+# User local bin path
 $localBinPath = Join-Path $env:USERPROFILE ".local\bin"
 if (-not (Test-Path $localBinPath)) {
     New-Item -ItemType Directory -Path $localBinPath -Force | Out-Null
@@ -406,47 +406,6 @@ Add-ToPathIfNotExists $cargoBinPath | Out-Null
 # Refresh PATH again after adding new paths
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 Write-Host "PATH configuration completed" -ForegroundColor Green
-
-# 2.4.2. Install Visual Studio 2022 Community with specific workloads
-Write-Host ""
-Write-Host "Installing Visual Studio 2022 Community with C++ workloads..." -ForegroundColor Yellow
-
-# Check if VS 2022 Community is already installed
-$vsWhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
-$vsInstalled = $false
-
-if (Test-Path $vsWhere) {
-    $vsInfo = & $vsWhere -products Microsoft.VisualStudio.Product.Community -version "[17.0,18.0)" -format json 2>$null | ConvertFrom-Json
-    if ($vsInfo -and $vsInfo.Count -gt 0) {
-        $vsInstalled = $true
-        Write-Host "Visual Studio 2022 Community is already installed" -ForegroundColor Green
-        Write-Host "   To modify workloads, open Visual Studio Installer manually" -ForegroundColor Gray
-    }
-}
-
-if (-not $vsInstalled) {
-    try {
-        # Install with C++ Desktop, Game Development, and Windows 10 SDK
-        # --passive: shows progress but no interaction required
-        # --wait: wait for installation to complete
-        $vsWorkloads = @(
-            "--add Microsoft.VisualStudio.Workload.NativeDesktop",
-            "--add Microsoft.VisualStudio.Workload.NativeGame",
-            "--add Microsoft.VisualStudio.Component.Windows10SDK.19041",
-            "--includeRecommended"
-        ) -join " "
-
-        Write-Host "   Workloads: C++ Desktop, Game Development, Windows 10 SDK (19041)" -ForegroundColor Gray
-        Write-Host "   This may take a while..." -ForegroundColor Gray
-
-        winget install --id Microsoft.VisualStudio.2022.Community --accept-package-agreements --accept-source-agreements --override "--passive --wait $vsWorkloads"
-
-        Write-Host "Visual Studio 2022 Community installed successfully" -ForegroundColor Green
-    } catch {
-        Write-Host "WARNING: Visual Studio installation failed" -ForegroundColor Yellow
-        Write-Host "   You can manually install it from: https://visualstudio.microsoft.com/downloads/" -ForegroundColor Gray
-    }
-}
 
 # 2.5. Install Claude Code
 Write-Host ""
@@ -541,172 +500,242 @@ if ($codexCmd) {
     }
 }
 
-# 2.7. Configure Rust environment
-Write-Host ""
-Write-Host "Configuring Rust environment..." -ForegroundColor Yellow
+# ===== Optional: Gaming / UE Modding Tools =====
+function Install-GamingTools {
+    Write-Host ""
+    Write-Host "========================================" -ForegroundColor Cyan
+    Write-Host "  扩展安装: UE 游戏开发 / Modding 工具" -ForegroundColor Cyan
+    Write-Host "========================================" -ForegroundColor Cyan
+    Write-Host ""
 
-# Find rustup executable path
-$rustupPath = $null
-$rustupCmd = Get-Command rustup -ErrorAction SilentlyContinue
-if ($rustupCmd) {
-    $rustupPath = $rustupCmd.Source
-}
-
-# Fallback: check default rustup installation path
-if (-not $rustupPath) {
-    $defaultRustup = Join-Path $env:USERPROFILE ".cargo\bin\rustup.exe"
-    if (Test-Path $defaultRustup) {
-        $rustupPath = $defaultRustup
-    }
-}
-
-if ($rustupPath) {
-    Write-Host "Found rustup, initializing Rust toolchain..." -ForegroundColor Gray
-
-    # Initialize with default stable-msvc toolchain
+    # 1. Install Visual Studio Build Tools and Rust via winget
+    Write-Host "Installing Visual Studio Build Tools..." -ForegroundColor Yellow
     try {
-        & $rustupPath default stable-msvc 2>&1 | Out-Null
-        Write-Host "Rust toolchain configured (stable-msvc)" -ForegroundColor Green
+        winget install --id Microsoft.VisualStudio.2022.BuildTools --accept-package-agreements --accept-source-agreements
+        Write-Host "Visual Studio Build Tools installed" -ForegroundColor Green
     } catch {
-        Write-Host "WARNING: Failed to set default toolchain" -ForegroundColor Yellow
+        Write-Host "WARNING: Visual Studio Build Tools installation failed" -ForegroundColor Yellow
     }
 
-    # Refresh PATH for current session (Cargo bin was added in early PATH config)
-    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
-} else {
-    Write-Host "WARNING: rustup not found" -ForegroundColor Yellow
-    Write-Host "   Rust may still be installing. Run this script again to configure Rust." -ForegroundColor Gray
-}
-
-# 2.8. Install UE Modding Tools (FModel, Repak, UAssetGUI)
-Write-Host ""
-Write-Host "Installing UE Modding Tools..." -ForegroundColor Yellow
-
-function Install-GitHubRelease {
-    param(
-        [string]$Repo,
-        [string]$AssetPattern,
-        [string]$ToolName,
-        [string]$DestPath,
-        [bool]$IsZip = $true
-    )
-
-    Write-Host "Installing $ToolName..." -ForegroundColor Gray
-
+    Write-Host ""
+    Write-Host "Installing Rust (rustup)..." -ForegroundColor Yellow
     try {
-        # Get latest release info from GitHub API
-        $releaseUrl = "https://api.github.com/repos/$Repo/releases/latest"
-        $release = Invoke-RestMethod -Uri $releaseUrl -Headers @{ "User-Agent" = "PowerShell" }
+        winget install --id Rustlang.Rustup --accept-package-agreements --accept-source-agreements
+        Write-Host "Rust installed" -ForegroundColor Green
+    } catch {
+        Write-Host "WARNING: Rust installation failed" -ForegroundColor Yellow
+    }
 
-        # Find matching asset
-        $asset = $release.assets | Where-Object { $_.name -match $AssetPattern } | Select-Object -First 1
+    # Refresh PATH after winget installs
+    $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 
-        if (-not $asset) {
-            Write-Host "WARNING: No matching asset found for $ToolName" -ForegroundColor Yellow
+    # 2. Install Visual Studio 2022 Community with C++ workloads
+    Write-Host ""
+    Write-Host "Installing Visual Studio 2022 Community with C++ workloads..." -ForegroundColor Yellow
+
+    $vsWhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+    $vsInstalled = $false
+
+    if (Test-Path $vsWhere) {
+        $vsInfo = & $vsWhere -products Microsoft.VisualStudio.Product.Community -version "[17.0,18.0)" -format json 2>$null | ConvertFrom-Json
+        if ($vsInfo -and $vsInfo.Count -gt 0) {
+            $vsInstalled = $true
+            Write-Host "Visual Studio 2022 Community is already installed" -ForegroundColor Green
+            Write-Host "   To modify workloads, open Visual Studio Installer manually" -ForegroundColor Gray
+        }
+    }
+
+    if (-not $vsInstalled) {
+        try {
+            $vsWorkloads = @(
+                "--add Microsoft.VisualStudio.Workload.NativeDesktop",
+                "--add Microsoft.VisualStudio.Workload.NativeGame",
+                "--add Microsoft.VisualStudio.Component.Windows10SDK.19041",
+                "--includeRecommended"
+            ) -join " "
+
+            Write-Host "   Workloads: C++ Desktop, Game Development, Windows 10 SDK (19041)" -ForegroundColor Gray
+            Write-Host "   This may take a while..." -ForegroundColor Gray
+
+            winget install --id Microsoft.VisualStudio.2022.Community --accept-package-agreements --accept-source-agreements --override "--passive --wait $vsWorkloads"
+
+            Write-Host "Visual Studio 2022 Community installed successfully" -ForegroundColor Green
+        } catch {
+            Write-Host "WARNING: Visual Studio installation failed" -ForegroundColor Yellow
+            Write-Host "   You can manually install it from: https://visualstudio.microsoft.com/downloads/" -ForegroundColor Gray
+        }
+    }
+
+    # 3. Configure Rust environment
+    Write-Host ""
+    Write-Host "Configuring Rust environment..." -ForegroundColor Yellow
+
+    $rustupPath = $null
+    $rustupCmd = Get-Command rustup -ErrorAction SilentlyContinue
+    if ($rustupCmd) {
+        $rustupPath = $rustupCmd.Source
+    }
+
+    if (-not $rustupPath) {
+        $defaultRustup = Join-Path $env:USERPROFILE ".cargo\bin\rustup.exe"
+        if (Test-Path $defaultRustup) {
+            $rustupPath = $defaultRustup
+        }
+    }
+
+    if ($rustupPath) {
+        Write-Host "Found rustup, initializing Rust toolchain..." -ForegroundColor Gray
+        try {
+            & $rustupPath default stable-msvc 2>&1 | Out-Null
+            Write-Host "Rust toolchain configured (stable-msvc)" -ForegroundColor Green
+        } catch {
+            Write-Host "WARNING: Failed to set default toolchain" -ForegroundColor Yellow
+        }
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+    } else {
+        Write-Host "WARNING: rustup not found" -ForegroundColor Yellow
+        Write-Host "   Rust may still be installing. Run this script again to configure Rust." -ForegroundColor Gray
+    }
+
+    # 4. Install UE Modding Tools (FModel, Repak, UAssetGUI)
+    Write-Host ""
+    Write-Host "Installing UE Modding Tools..." -ForegroundColor Yellow
+
+    function Install-GitHubRelease {
+        param(
+            [string]$Repo,
+            [string]$AssetPattern,
+            [string]$ToolName,
+            [string]$DestPath,
+            [bool]$IsZip = $true
+        )
+
+        Write-Host "Installing $ToolName..." -ForegroundColor Gray
+
+        try {
+            $releaseUrl = "https://api.github.com/repos/$Repo/releases/latest"
+            $release = Invoke-RestMethod -Uri $releaseUrl -Headers @{ "User-Agent" = "PowerShell" }
+
+            $asset = $release.assets | Where-Object { $_.name -match $AssetPattern } | Select-Object -First 1
+
+            if (-not $asset) {
+                Write-Host "WARNING: No matching asset found for $ToolName" -ForegroundColor Yellow
+                return $false
+            }
+
+            $downloadUrl = $asset.browser_download_url
+            $fileName = $asset.name
+            $tempFile = Join-Path $env:TEMP $fileName
+
+            Write-Host "   Downloading $fileName..." -ForegroundColor Gray
+            Invoke-WebRequest -Uri $downloadUrl -OutFile $tempFile -UseBasicParsing
+
+            if (-not (Test-Path $DestPath)) {
+                New-Item -ItemType Directory -Path $DestPath -Force | Out-Null
+            }
+
+            if ($IsZip) {
+                $extractPath = Join-Path $DestPath $ToolName
+                if (Test-Path $extractPath) {
+                    Remove-Item $extractPath -Recurse -Force
+                }
+                Expand-Archive -Path $tempFile -DestinationPath $extractPath -Force
+                Write-Host "   Extracted to: $extractPath" -ForegroundColor Green
+            } else {
+                $destFile = Join-Path $DestPath $fileName
+                Copy-Item $tempFile $destFile -Force
+                Write-Host "   Saved to: $destFile" -ForegroundColor Green
+            }
+
+            Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+
+            Write-Host "$ToolName installed successfully" -ForegroundColor Green
+            return $true
+        } catch {
+            Write-Host "WARNING: Failed to install $ToolName - $($_.Exception.Message)" -ForegroundColor Yellow
             return $false
         }
-
-        $downloadUrl = $asset.browser_download_url
-        $fileName = $asset.name
-        $tempFile = Join-Path $env:TEMP $fileName
-
-        Write-Host "   Downloading $fileName..." -ForegroundColor Gray
-        Invoke-WebRequest -Uri $downloadUrl -OutFile $tempFile -UseBasicParsing
-
-        # Ensure destination directory exists
-        if (-not (Test-Path $DestPath)) {
-            New-Item -ItemType Directory -Path $DestPath -Force | Out-Null
-        }
-
-        if ($IsZip) {
-            # Extract zip file
-            $extractPath = Join-Path $DestPath $ToolName
-            if (Test-Path $extractPath) {
-                Remove-Item $extractPath -Recurse -Force
-            }
-            Expand-Archive -Path $tempFile -DestinationPath $extractPath -Force
-            Write-Host "   Extracted to: $extractPath" -ForegroundColor Green
-        } else {
-            # Copy single executable
-            $destFile = Join-Path $DestPath $fileName
-            Copy-Item $tempFile $destFile -Force
-            Write-Host "   Saved to: $destFile" -ForegroundColor Green
-        }
-
-        # Cleanup
-        Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
-
-        Write-Host "$ToolName installed successfully" -ForegroundColor Green
-        return $true
-    } catch {
-        Write-Host "WARNING: Failed to install $ToolName - $($_.Exception.Message)" -ForegroundColor Yellow
-        return $false
     }
-}
 
-# Set UE Tools destination path
-$ueToolsPath = $localBinPath
+    $localBinPath = Join-Path $env:USERPROFILE ".local\bin"
+    $ueToolsPath = $localBinPath
 
-# Install FModel (Windows only, .NET application)
-$fmodelPath = Join-Path $ueToolsPath "FModel"
-if (Test-Path (Join-Path $fmodelPath "FModel.exe")) {
-    Write-Host "FModel is already installed" -ForegroundColor Green
-} else {
-    Install-GitHubRelease -Repo "4sval/FModel" -AssetPattern "FModel\.zip$" -ToolName "FModel" -DestPath $ueToolsPath -IsZip $true
-}
+    # FModel
+    $fmodelPath = Join-Path $ueToolsPath "FModel"
+    if (Test-Path (Join-Path $fmodelPath "FModel.exe")) {
+        Write-Host "FModel is already installed" -ForegroundColor Green
+    } else {
+        Install-GitHubRelease -Repo "4sval/FModel" -AssetPattern "FModel\.zip$" -ToolName "FModel" -DestPath $ueToolsPath -IsZip $true
+    }
 
-# Install Repak (Rust CLI, cross-platform)
-$repakExe = Join-Path $ueToolsPath "repak.exe"
-if (Test-Path $repakExe) {
-    Write-Host "Repak is already installed" -ForegroundColor Green
-} else {
-    try {
-        Write-Host "Installing Repak..." -ForegroundColor Gray
-        $releaseUrl = "https://api.github.com/repos/trumank/repak/releases/latest"
-        $release = Invoke-RestMethod -Uri $releaseUrl -Headers @{ "User-Agent" = "PowerShell" }
-        $asset = $release.assets | Where-Object { $_.name -match "x86_64-pc-windows-msvc\.zip$" } | Select-Object -First 1
+    # Repak
+    $repakExe = Join-Path $ueToolsPath "repak.exe"
+    if (Test-Path $repakExe) {
+        Write-Host "Repak is already installed" -ForegroundColor Green
+    } else {
+        try {
+            Write-Host "Installing Repak..." -ForegroundColor Gray
+            $releaseUrl = "https://api.github.com/repos/trumank/repak/releases/latest"
+            $release = Invoke-RestMethod -Uri $releaseUrl -Headers @{ "User-Agent" = "PowerShell" }
+            $asset = $release.assets | Where-Object { $_.name -match "x86_64-pc-windows-msvc\.zip$" } | Select-Object -First 1
 
-        if ($asset) {
-            $tempFile = Join-Path $env:TEMP $asset.name
-            $tempExtract = Join-Path $env:TEMP "repak_extract"
+            if ($asset) {
+                $tempFile = Join-Path $env:TEMP $asset.name
+                $tempExtract = Join-Path $env:TEMP "repak_extract"
 
-            Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $tempFile -UseBasicParsing
+                Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $tempFile -UseBasicParsing
 
-            if (Test-Path $tempExtract) { Remove-Item $tempExtract -Recurse -Force }
-            Expand-Archive -Path $tempFile -DestinationPath $tempExtract -Force
+                if (Test-Path $tempExtract) { Remove-Item $tempExtract -Recurse -Force }
+                Expand-Archive -Path $tempFile -DestinationPath $tempExtract -Force
 
-            # Find and copy repak.exe
-            $repakExeSource = Get-ChildItem -Path $tempExtract -Filter "repak.exe" -Recurse | Select-Object -First 1
-            if ($repakExeSource) {
-                if (-not (Test-Path $ueToolsPath)) {
-                    New-Item -ItemType Directory -Path $ueToolsPath -Force | Out-Null
+                $repakExeSource = Get-ChildItem -Path $tempExtract -Filter "repak.exe" -Recurse | Select-Object -First 1
+                if ($repakExeSource) {
+                    if (-not (Test-Path $ueToolsPath)) {
+                        New-Item -ItemType Directory -Path $ueToolsPath -Force | Out-Null
+                    }
+                    Copy-Item $repakExeSource.FullName $repakExe -Force
+                    Write-Host "Repak installed successfully" -ForegroundColor Green
                 }
-                Copy-Item $repakExeSource.FullName $repakExe -Force
-                Write-Host "Repak installed successfully" -ForegroundColor Green
+
+                Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+                Remove-Item $tempExtract -Recurse -Force -ErrorAction SilentlyContinue
+            } else {
+                Write-Host "WARNING: No Windows build found for Repak" -ForegroundColor Yellow
             }
-
-            # Cleanup
-            Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
-            Remove-Item $tempExtract -Recurse -Force -ErrorAction SilentlyContinue
-        } else {
-            Write-Host "WARNING: No Windows build found for Repak" -ForegroundColor Yellow
+        } catch {
+            Write-Host "WARNING: Failed to install Repak - $($_.Exception.Message)" -ForegroundColor Yellow
         }
-    } catch {
-        Write-Host "WARNING: Failed to install Repak - $($_.Exception.Message)" -ForegroundColor Yellow
     }
+
+    # UAssetGUI
+    $uassetguiPath = Join-Path $ueToolsPath "UAssetGUI"
+    if (Test-Path (Join-Path $uassetguiPath "UAssetGUI.exe")) {
+        Write-Host "UAssetGUI is already installed" -ForegroundColor Green
+    } else {
+        Install-GitHubRelease -Repo "atenfyr/UAssetGUI" -AssetPattern "UAssetGUI\.zip$" -ToolName "UAssetGUI" -DestPath $ueToolsPath -IsZip $true
+    }
+
+    Write-Host ""
+    Write-Host "UE Modding Tools installation completed" -ForegroundColor Cyan
+    Write-Host "   Tools location: $ueToolsPath" -ForegroundColor Gray
 }
 
-# Install UAssetGUI (Windows only, .NET application)
-$uassetguiPath = Join-Path $ueToolsPath "UAssetGUI"
-if (Test-Path (Join-Path $uassetguiPath "UAssetGUI.exe")) {
-    Write-Host "UAssetGUI is already installed" -ForegroundColor Green
-} else {
-    Install-GitHubRelease -Repo "atenfyr/UAssetGUI" -AssetPattern "UAssetGUI\.zip$" -ToolName "UAssetGUI" -DestPath $ueToolsPath -IsZip $true
-}
-
+# ===== Optional Extended Installation =====
 Write-Host ""
-Write-Host "UE Modding Tools installation completed" -ForegroundColor Cyan
-Write-Host "   Tools location: $ueToolsPath" -ForegroundColor Gray
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "  基础安装已完成" -ForegroundColor Green
+Write-Host "========================================" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "可选扩展: UE 游戏开发 / Modding 工具包" -ForegroundColor Yellow
+Write-Host "  包含: Visual Studio 2022 Community (C++/Game workloads)" -ForegroundColor Gray
+Write-Host "        Rust 工具链, FModel, Repak, UAssetGUI" -ForegroundColor Gray
+Write-Host ""
+$extendedInstall = Read-Host "是否进行扩展安装？[N] 否 / [Y] 是 (默认: N)"
+if ($extendedInstall -eq 'Y' -or $extendedInstall -eq 'y') {
+    Install-GamingTools
+} else {
+    Write-Host "已跳过扩展安装" -ForegroundColor Gray
+}
 
 # 2.9. Install VS Code Extensions
 Write-Host ""
@@ -937,16 +966,6 @@ try {
 try {
     Write-Host "   Git:    $(git --version 2>&1)" -ForegroundColor Gray
 } catch {}
-try {
-    $rustVersion = rustc --version 2>&1
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "   Rust:   $rustVersion" -ForegroundColor Gray
-    } else {
-        Write-Host "   Rust:   Not found (run: rustup default stable-msvc)" -ForegroundColor Yellow
-    }
-} catch {
-    Write-Host "   Rust:   Not found (run: rustup default stable-msvc)" -ForegroundColor Yellow
-}
 try {
     Write-Host "   GitHub CLI: $(gh --version 2>&1 | Select-Object -First 1)" -ForegroundColor Gray
 } catch {

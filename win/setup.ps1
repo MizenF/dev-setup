@@ -1,4 +1,4 @@
-# Windows Development Environment Setup Script
+﻿# Windows Development Environment Setup Script
 # Must run as Administrator
 
 #Requires -RunAsAdministrator
@@ -794,7 +794,7 @@ if ($codePath) {
     Write-Host "VS Code extensions installation completed" -ForegroundColor Green
 } else {
     Write-Host "WARNING: VS Code not found, skipping extensions installation" -ForegroundColor Yellow
-    Write-Host "   Extensions can be installed later via: code --install-extension <id>" -ForegroundColor Gray
+    Write-Host "   Extensions can be installed later via: code --install-extension [extension-id]" -ForegroundColor Gray
 }
 
 # 3. Configure PowerShell Profile
@@ -881,7 +881,7 @@ if (-not $gitPath) {
     # Configure git user info if not already set
     if ([string]::IsNullOrWhiteSpace($existingName) -or $existingName -eq "YOUR_NAME_HERE") {
         Write-Host ""
-        $gitName = Read-Host "Enter your Git username (e.g., John Doe)"
+        $gitName = Read-Host 'Enter your Git username (e.g. John Doe)'
         if (-not [string]::IsNullOrWhiteSpace($gitName)) {
             & $gitPath config --global user.name "$gitName"
             Write-Host "Git user.name configured: $gitName" -ForegroundColor Green
@@ -894,7 +894,7 @@ if (-not $gitPath) {
 
     if ([string]::IsNullOrWhiteSpace($existingEmail) -or $existingEmail -eq "YOUR_EMAIL_HERE") {
         Write-Host ""
-        $gitEmail = Read-Host "Enter your Git email (e.g., john@example.com)"
+        $gitEmail = Read-Host 'Enter your Git email (e.g. john@example.com)'
         if (-not [string]::IsNullOrWhiteSpace($gitEmail)) {
             & $gitPath config --global user.email "$gitEmail"
             Write-Host "Git user.email configured: $gitEmail" -ForegroundColor Green

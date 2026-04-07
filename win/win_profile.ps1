@@ -1,4 +1,4 @@
-# Windows PowerShell Profile
+﻿# Windows PowerShell Profile
 # This file is loaded automatically when PowerShell starts
 
 # ============================================
@@ -7,19 +7,21 @@
 
 if (Get-Module -ListAvailable -Name PSReadLine) {
     Import-Module PSReadLine
-    
-    # 启用预测性 IntelliSense
-    Set-PSReadLineOption -PredictionSource History
-    Set-PSReadLineOption -PredictionViewStyle ListView
-    
+
+    # 启用预测性 IntelliSense（需要 PSReadLine 2.2+ / PowerShell 7+）
+    if ($PSVersionTable.PSVersion.Major -ge 7) {
+        Set-PSReadLineOption -PredictionSource History
+        Set-PSReadLineOption -PredictionViewStyle ListView
+    }
+
     # 历史搜索
     Set-PSReadLineKeyHandler -Key UpArrow -Function HistorySearchBackward
     Set-PSReadLineKeyHandler -Key DownArrow -Function HistorySearchForward
-    
+
     # 自动补全
     Set-PSReadLineOption -HistorySearchCursorMovesToEnd
     Set-PSReadLineKeyHandler -Key Tab -Function MenuComplete
-    
+
     # 颜色配置
     Set-PSReadLineOption -Colors @{
         Command = 'Yellow'
@@ -125,9 +127,20 @@ Add-ToPath $nodeModules
 # 自动加载 dotfiles aliases（如果存在）
 # ============================================
 
-$profileDir = if ($PSScriptRoot) { $PSScriptRoot } elseif ($MyInvocation.MyCommand.Path) { Split-Path $MyInvocation.MyCommand.Path } else { $null }
-$repoRoot = if ($profileDir) { Split-Path -Parent $profileDir } else { $null }
-$aliasesPath = if ($repoRoot) { Join-Path $repoRoot "dotfiles\aliases.sh" } else { $null }
+$profileDir = $null
+if ($PSScriptRoot) {
+    $profileDir = $PSScriptRoot
+} elseif ($MyInvocation.MyCommand.Path) {
+    $profileDir = Split-Path $MyInvocation.MyCommand.Path
+}
+$repoRoot = $null
+if ($profileDir) {
+    $repoRoot = Split-Path -Parent $profileDir
+}
+$aliasesPath = $null
+if ($repoRoot) {
+    $aliasesPath = Join-Path $repoRoot "dotfiles\aliases.sh"
+}
 
 if ($aliasesPath -and (Test-Path $aliasesPath)) {
     # 读取 aliases.sh 并转换为 PowerShell 格式

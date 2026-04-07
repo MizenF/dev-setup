@@ -29,7 +29,7 @@ chmod +x install.sh
 - 前端工具：yarn, pnpm, typescript
 - CLI 工具：ripgrep, fd, bat, eza, fzf, tmux 等
 - 容器工具：Docker, Docker Compose
-- 应用：VSCode, Chrome, iTerm2, Postman, Bruno, Claude Desktop, Discord 等
+- 应用：VSCode, Chrome, iTerm2, Postman, Bruno, Claude Desktop, Discord, Signal 等
 
 **安装后：**
 ```bash
@@ -65,7 +65,7 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 | AI 工具 | Claude Desktop, Claude Code CLI, Codex CLI |
 | CLI 工具 | ripgrep, fd, fzf, jq, yq, bat, eza, httpie |
 | 前端工具 | Yarn, pnpm |
-| 应用 | Chrome, Postman, Bruno, Discord, 7zip |
+| 应用 | Chrome, Postman, Bruno, Discord, Signal, 7zip |
 | VS Code 插件 | Cline (AI assistant), Remote SSH |
 
 **安装流程：**

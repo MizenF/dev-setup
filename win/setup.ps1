@@ -161,6 +161,7 @@ function Enable-RequiredVirtualizationFeatures {
 
     if ($needsReboot) {
         $RebootRequired.Value = $true
+        $script:RebootReason = "feature-enabled"
     }
 
     return (-not $needsReboot)
@@ -168,8 +169,9 @@ function Enable-RequiredVirtualizationFeatures {
 
 # ===== End Virtualization Detection Functions =====
 
-# Initialize reboot tracking variable
+# Initialize reboot tracking variables
 $script:RebootRequired = $false
+$script:RebootReason = ""
 
 # Early virtualization check
 Write-Host "Checking system virtualization status..." -ForegroundColor Yellow
@@ -192,6 +194,7 @@ if ($pendingReboot) {
     Write-Host "WARNING: System has a pending reboot from previous updates" -ForegroundColor Yellow
     Write-Host "   It is recommended to restart before continuing" -ForegroundColor Yellow
     $script:RebootRequired = $true
+    $script:RebootReason = "pending-reboot"
 }
 
 Write-Host ""
@@ -262,7 +265,11 @@ if (Test-Path $wingetJsonPath) {
             Write-Host "Reason: System requires restart for virtualization features to take effect" -ForegroundColor Yellow
             Write-Host ""
             Write-Host "What was done:" -ForegroundColor Cyan
-            Write-Host "   - VirtualMachinePlatform feature has been enabled" -ForegroundColor Gray
+            if ($script:RebootReason -eq "feature-enabled") {
+                Write-Host "   - VirtualMachinePlatform feature has been enabled" -ForegroundColor Gray
+            } else {
+                Write-Host "   - System has a pending reboot from previous updates" -ForegroundColor Gray
+            }
             Write-Host "   - A system restart is required for changes to take effect" -ForegroundColor Gray
             Write-Host ""
             Write-Host "Next steps:" -ForegroundColor Cyan
@@ -417,7 +424,10 @@ if ($claudeCmd) {
     Write-Host "Claude Code is already installed" -ForegroundColor Green
 } else {
     try {
+        # Note: Remote script executed as admin - relies on HTTPS transport security
         & ([scriptblock]::Create((irm https://claude.ai/install.ps1))) latest
+        # Refresh PATH so claude is available for plugin installation
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
         Write-Host "Claude Code installed successfully" -ForegroundColor Green
     } catch {
         Write-Host "WARNING: Claude Code installation failed" -ForegroundColor Yellow
@@ -449,10 +459,10 @@ if ($claudeCmd) {
     foreach ($plugin in $claudePlugins) {
         try {
             Write-Host "   Installing: $plugin" -ForegroundColor Gray
-            & claude plugin install "${plugin}@claude-plugins-official" --scope user 2>&1 | Out-Null
+            $pluginOutput = & claude plugin install "${plugin}@claude-plugins-official" --scope user 2>&1
             Write-Host "   $plugin - OK" -ForegroundColor Green
         } catch {
-            Write-Host "   WARNING: Failed to install $plugin" -ForegroundColor Yellow
+            Write-Host "   WARNING: Failed to install $plugin - $($_.Exception.Message)" -ForegroundColor Yellow
         }
     }
     Write-Host "Claude Code plugins installation completed" -ForegroundColor Green
@@ -497,6 +507,63 @@ if ($codexCmd) {
     } else {
         Write-Host "WARNING: npm not found; Codex CLI not installed" -ForegroundColor Yellow
         Write-Host "   Node.js may still be installing. Run this script again to install Codex CLI." -ForegroundColor Gray
+    }
+}
+
+# ===== Helper Functions =====
+function Install-GitHubRelease {
+    param(
+        [string]$Repo,
+        [string]$AssetPattern,
+        [string]$ToolName,
+        [string]$DestPath,
+        [bool]$IsZip = $true
+    )
+
+    Write-Host "Installing $ToolName..." -ForegroundColor Gray
+
+    try {
+        $releaseUrl = "https://api.github.com/repos/$Repo/releases/latest"
+        $release = Invoke-RestMethod -Uri $releaseUrl -Headers @{ "User-Agent" = "PowerShell" }
+
+        $asset = $release.assets | Where-Object { $_.name -match $AssetPattern } | Select-Object -First 1
+
+        if (-not $asset) {
+            Write-Host "WARNING: No matching asset found for $ToolName" -ForegroundColor Yellow
+            return $false
+        }
+
+        $downloadUrl = $asset.browser_download_url
+        $fileName = $asset.name
+        $tempFile = Join-Path $env:TEMP $fileName
+
+        Write-Host "   Downloading $fileName..." -ForegroundColor Gray
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $tempFile -UseBasicParsing
+
+        if (-not (Test-Path $DestPath)) {
+            New-Item -ItemType Directory -Path $DestPath -Force | Out-Null
+        }
+
+        if ($IsZip) {
+            $extractPath = Join-Path $DestPath $ToolName
+            if (Test-Path $extractPath) {
+                Remove-Item $extractPath -Recurse -Force
+            }
+            Expand-Archive -Path $tempFile -DestinationPath $extractPath -Force
+            Write-Host "   Extracted to: $extractPath" -ForegroundColor Green
+        } else {
+            $destFile = Join-Path $DestPath $fileName
+            Copy-Item $tempFile $destFile -Force
+            Write-Host "   Saved to: $destFile" -ForegroundColor Green
+        }
+
+        Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+
+        Write-Host "$ToolName installed successfully" -ForegroundColor Green
+        return $true
+    } catch {
+        Write-Host "WARNING: Failed to install $ToolName - $($_.Exception.Message)" -ForegroundColor Yellow
+        return $false
     }
 }
 
@@ -600,62 +667,6 @@ function Install-GamingTools {
     # 4. Install UE Modding Tools (FModel, Repak, UAssetGUI)
     Write-Host ""
     Write-Host "Installing UE Modding Tools..." -ForegroundColor Yellow
-
-    function Install-GitHubRelease {
-        param(
-            [string]$Repo,
-            [string]$AssetPattern,
-            [string]$ToolName,
-            [string]$DestPath,
-            [bool]$IsZip = $true
-        )
-
-        Write-Host "Installing $ToolName..." -ForegroundColor Gray
-
-        try {
-            $releaseUrl = "https://api.github.com/repos/$Repo/releases/latest"
-            $release = Invoke-RestMethod -Uri $releaseUrl -Headers @{ "User-Agent" = "PowerShell" }
-
-            $asset = $release.assets | Where-Object { $_.name -match $AssetPattern } | Select-Object -First 1
-
-            if (-not $asset) {
-                Write-Host "WARNING: No matching asset found for $ToolName" -ForegroundColor Yellow
-                return $false
-            }
-
-            $downloadUrl = $asset.browser_download_url
-            $fileName = $asset.name
-            $tempFile = Join-Path $env:TEMP $fileName
-
-            Write-Host "   Downloading $fileName..." -ForegroundColor Gray
-            Invoke-WebRequest -Uri $downloadUrl -OutFile $tempFile -UseBasicParsing
-
-            if (-not (Test-Path $DestPath)) {
-                New-Item -ItemType Directory -Path $DestPath -Force | Out-Null
-            }
-
-            if ($IsZip) {
-                $extractPath = Join-Path $DestPath $ToolName
-                if (Test-Path $extractPath) {
-                    Remove-Item $extractPath -Recurse -Force
-                }
-                Expand-Archive -Path $tempFile -DestinationPath $extractPath -Force
-                Write-Host "   Extracted to: $extractPath" -ForegroundColor Green
-            } else {
-                $destFile = Join-Path $DestPath $fileName
-                Copy-Item $tempFile $destFile -Force
-                Write-Host "   Saved to: $destFile" -ForegroundColor Green
-            }
-
-            Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
-
-            Write-Host "$ToolName installed successfully" -ForegroundColor Green
-            return $true
-        } catch {
-            Write-Host "WARNING: Failed to install $ToolName - $($_.Exception.Message)" -ForegroundColor Yellow
-            return $false
-        }
-    }
 
     $localBinPath = Join-Path $env:USERPROFILE ".local\bin"
     $ueToolsPath = $localBinPath
@@ -859,7 +870,9 @@ if (-not $gitPath) {
     if (-not (Test-Path $gitconfigPath)) {
         if (Test-Path $sourceGitconfig) {
             Copy-Item $sourceGitconfig $gitconfigPath
-            Write-Host "Copied gitconfig template" -ForegroundColor Green
+            # Override autocrlf for Windows (template has 'input' for Unix)
+            & $gitPath config --global core.autocrlf true
+            Write-Host "Copied gitconfig template (autocrlf set to true for Windows)" -ForegroundColor Green
         } else {
             Write-Host "WARNING: dotfiles\gitconfig not found" -ForegroundColor Yellow
         }
@@ -870,7 +883,7 @@ if (-not $gitPath) {
         Write-Host ""
         $gitName = Read-Host "Enter your Git username (e.g., John Doe)"
         if (-not [string]::IsNullOrWhiteSpace($gitName)) {
-            & $gitPath config --global user.name $gitName
+            & $gitPath config --global user.name "$gitName"
             Write-Host "Git user.name configured: $gitName" -ForegroundColor Green
         } else {
             Write-Host "WARNING: Git user.name not set (skipped)" -ForegroundColor Yellow
@@ -883,7 +896,7 @@ if (-not $gitPath) {
         Write-Host ""
         $gitEmail = Read-Host "Enter your Git email (e.g., john@example.com)"
         if (-not [string]::IsNullOrWhiteSpace($gitEmail)) {
-            & $gitPath config --global user.email $gitEmail
+            & $gitPath config --global user.email "$gitEmail"
             Write-Host "Git user.email configured: $gitEmail" -ForegroundColor Green
         } else {
             Write-Host "WARNING: Git user.email not set (skipped)" -ForegroundColor Yellow
@@ -929,8 +942,12 @@ if ($script:RebootRequired) {
     Write-Host "========================================" -ForegroundColor Red
     Write-Host ""
     Write-Host "Why restart is needed:" -ForegroundColor Cyan
-    Write-Host "   - VirtualMachinePlatform feature was enabled" -ForegroundColor Gray
-    Write-Host "   - Windows features require a restart to take effect" -ForegroundColor Gray
+    if ($script:RebootReason -eq "feature-enabled") {
+        Write-Host "   - VirtualMachinePlatform feature was enabled" -ForegroundColor Gray
+        Write-Host "   - Windows features require a restart to take effect" -ForegroundColor Gray
+    } else {
+        Write-Host "   - System has a pending reboot from previous updates" -ForegroundColor Gray
+    }
     Write-Host "   - Docker Desktop installation was skipped" -ForegroundColor Gray
     Write-Host ""
     Write-Host "After restarting:" -ForegroundColor Cyan

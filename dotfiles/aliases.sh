@@ -107,9 +107,9 @@ ff() {
 }
 
 # 快速查找目录
-fd() {
+fdir() {
     if [ -z "$1" ]; then
-        echo "Usage: fd <dirname>"
+        echo "Usage: fdir <dirname>"
         return 1
     fi
     find . -type d -name "*$1*"

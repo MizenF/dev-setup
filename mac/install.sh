@@ -47,7 +47,10 @@ if command -v claude &> /dev/null; then
     echo "✅ Claude Code 已安装"
 else
     echo "正在安装 Claude Code..."
+    # Note: Remote script - relies on HTTPS transport security
     curl -fsSL https://claude.ai/install.sh | bash -s latest
+    # Refresh PATH to pick up newly installed binary
+    export PATH="$HOME/.local/bin:$PATH"
     if command -v claude &> /dev/null; then
         echo "✅ Claude Code 安装成功"
     else
@@ -94,8 +97,7 @@ if command -v npm &> /dev/null; then
         echo "✅ Codex CLI 已安装"
     else
         echo "正在安装 Codex CLI..."
-        npm install -g @openai/codex
-        if [ $? -eq 0 ]; then
+        if npm install -g @openai/codex; then
             echo "✅ Codex CLI 安装成功"
         else
             echo "⚠️  Codex CLI 安装失败，请手动安装: npm install -g @openai/codex"
@@ -115,9 +117,10 @@ touch "$ZSHRC"
 
 # 添加 dotfiles/aliases.sh
 ALIASES_LINE="[ -f \"$REPO_ROOT/dotfiles/aliases.sh\" ] && source \"$REPO_ROOT/dotfiles/aliases.sh\""
-if ! grep -Fxq "$ALIASES_LINE" "$ZSHRC"; then
+ALIASES_MARKER="# dev-setup: aliases.sh"
+if ! grep -Fq "$ALIASES_MARKER" "$ZSHRC"; then
     echo "" >> "$ZSHRC"
-    echo "# Load dev-setup aliases" >> "$ZSHRC"
+    echo "$ALIASES_MARKER" >> "$ZSHRC"
     echo "$ALIASES_LINE" >> "$ZSHRC"
     echo "✅ 已添加 aliases.sh 到 .zshrc"
 else
@@ -126,9 +129,10 @@ fi
 
 # 添加 mac.zshrc
 MAC_ZSHRC_LINE="[ -f \"$SCRIPT_DIR/mac.zshrc\" ] && source \"$SCRIPT_DIR/mac.zshrc\""
-if ! grep -Fxq "$MAC_ZSHRC_LINE" "$ZSHRC"; then
+MAC_ZSHRC_MARKER="# dev-setup: mac.zshrc"
+if ! grep -Fq "$MAC_ZSHRC_MARKER" "$ZSHRC"; then
     echo "" >> "$ZSHRC"
-    echo "# Load macOS-specific config" >> "$ZSHRC"
+    echo "$MAC_ZSHRC_MARKER" >> "$ZSHRC"
     echo "$MAC_ZSHRC_LINE" >> "$ZSHRC"
     echo "✅ 已添加 mac.zshrc 到 .zshrc"
 else

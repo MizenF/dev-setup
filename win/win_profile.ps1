@@ -42,7 +42,7 @@ if (Get-Command oh-my-posh -ErrorAction SilentlyContinue) {
 # ============================================
 
 # 基础命令别名
-function ll { Get-ChildItem -Force }
+function ll { Get-ChildItem -Force | Format-Table Mode, LastWriteTime, Length, Name -AutoSize }
 function la { Get-ChildItem -Force }
 
 # Git 别名
@@ -125,10 +125,11 @@ Add-ToPath $nodeModules
 # 自动加载 dotfiles aliases（如果存在）
 # ============================================
 
-$repoRoot = Split-Path -Parent $PSScriptRoot
-$aliasesPath = Join-Path $repoRoot "dotfiles\aliases.sh"
+$profileDir = if ($PSScriptRoot) { $PSScriptRoot } elseif ($MyInvocation.MyCommand.Path) { Split-Path $MyInvocation.MyCommand.Path } else { $null }
+$repoRoot = if ($profileDir) { Split-Path -Parent $profileDir } else { $null }
+$aliasesPath = if ($repoRoot) { Join-Path $repoRoot "dotfiles\aliases.sh" } else { $null }
 
-if (Test-Path $aliasesPath) {
+if ($aliasesPath -and (Test-Path $aliasesPath)) {
     # 读取 aliases.sh 并转换为 PowerShell 格式
     # 注意：这只是基础转换，复杂的 bash 函数需要手动转换
     Get-Content $aliasesPath | ForEach-Object {

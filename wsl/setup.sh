@@ -47,6 +47,10 @@ else
     echo "✅ Git 已安装"
 fi
 
+# Ensure ~/.local/bin is in PATH for current session (used by fd symlink, repak, etc.)
+mkdir -p "$HOME/.local/bin"
+export PATH="$HOME/.local/bin:$PATH"
+
 # 3. 安装 CLI 工具
 echo ""
 echo "📦 安装 CLI 工具..."
@@ -91,7 +95,8 @@ fi
 # yq
 if ! command -v yq &> /dev/null; then
     echo "正在安装 yq..."
-    sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+    YQ_ARCH=$(dpkg --print-architecture)
+    sudo wget -qO /usr/local/bin/yq "https://github.com/mikefarah/yq/releases/latest/download/yq_linux_${YQ_ARCH}"
     sudo chmod +x /usr/local/bin/yq
 else
     echo "✅ yq 已安装"
@@ -123,7 +128,10 @@ if command -v claude &> /dev/null; then
     echo "✅ Claude Code 已安装"
 else
     echo "正在安装 Claude Code..."
+    # Note: Remote script - relies on HTTPS transport security
     curl -fsSL https://claude.ai/install.sh | bash -s latest
+    # Refresh PATH to pick up newly installed binary
+    export PATH="$HOME/.local/bin:$PATH"
     if command -v claude &> /dev/null; then
         echo "✅ Claude Code 安装成功"
     else
@@ -170,8 +178,7 @@ if command -v npm &> /dev/null; then
         echo "✅ Codex CLI 已安装"
     else
         echo "正在安装 Codex CLI..."
-        npm install -g @openai/codex
-        if [ $? -eq 0 ]; then
+        if npm install -g @openai/codex; then
             echo "✅ Codex CLI 安装成功"
         else
             echo "⚠️  Codex CLI 安装失败，请手动安装: npm install -g @openai/codex"
@@ -258,9 +265,10 @@ BASHRC="$HOME/.bashrc"
 
 # 添加 dotfiles/aliases.sh
 ALIASES_LINE="[ -f \"$REPO_ROOT/dotfiles/aliases.sh\" ] && source \"$REPO_ROOT/dotfiles/aliases.sh\""
-if ! grep -Fxq "$ALIASES_LINE" "$BASHRC"; then
+ALIASES_MARKER="# dev-setup: aliases.sh"
+if ! grep -Fq "$ALIASES_MARKER" "$BASHRC"; then
     echo "" >> "$BASHRC"
-    echo "# Load dev-setup aliases" >> "$BASHRC"
+    echo "$ALIASES_MARKER" >> "$BASHRC"
     echo "$ALIASES_LINE" >> "$BASHRC"
     echo "✅ 已添加 aliases.sh 到 .bashrc"
 else
@@ -269,9 +277,10 @@ fi
 
 # 添加 ~/.local/bin 到 PATH
 LOCAL_BIN_PATH='export PATH="$HOME/.local/bin:$PATH"'
-if ! grep -Fxq "$LOCAL_BIN_PATH" "$BASHRC"; then
+LOCAL_BIN_MARKER="# dev-setup: local-bin-path"
+if ! grep -Fq "$LOCAL_BIN_MARKER" "$BASHRC"; then
     echo "" >> "$BASHRC"
-    echo "# Add local bin to PATH" >> "$BASHRC"
+    echo "$LOCAL_BIN_MARKER" >> "$BASHRC"
     echo "$LOCAL_BIN_PATH" >> "$BASHRC"
     echo "✅ 已添加 ~/.local/bin 到 PATH"
 else

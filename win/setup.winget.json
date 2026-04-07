@@ -44,9 +44,6 @@
           "PackageIdentifier": "Discord.Discord"
         },
         {
-          "PackageIdentifier": "Google.Antigravity"
-        },
-        {
           "PackageIdentifier": "GitHub.cli"
         },
         {

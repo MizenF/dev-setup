@@ -52,3 +52,4 @@ cask "7zip"
 cask "claude"            # Claude Desktop (AI 助手)
 cask "discord"           # Discord 通讯工具
 cask "signal"            # Signal 加密通讯
+cask "antigravity"       # Google Antigravity IDE (AI 编程平台)

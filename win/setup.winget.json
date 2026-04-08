@@ -48,6 +48,9 @@
         },
         {
           "PackageIdentifier": "OpenWhisperSystems.Signal"
+        },
+        {
+          "PackageIdentifier": "Google.Antigravity"
         }
       ],
       "SourceDetails": {

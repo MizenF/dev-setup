@@ -40,6 +40,24 @@ else
     echo "⚠️  未找到 Brewfile，跳过软件包安装"
 fi
 
+# 3.1. 安装 paramiko (SSH2 Python 库)
+echo ""
+echo "📦 安装 paramiko..."
+if command -v python3 &> /dev/null; then
+    if python3 -c "import paramiko" &> /dev/null; then
+        echo "✅ paramiko 已安装"
+    else
+        # Homebrew 的 Python 是外部管理环境 (PEP 668)，用 --break-system-packages
+        if pip3 install --user --break-system-packages paramiko; then
+            echo "✅ paramiko 安装成功"
+        else
+            echo "⚠️  paramiko 安装失败，请手动安装: pip3 install --user --break-system-packages paramiko"
+        fi
+    fi
+else
+    echo "⚠️  Python3 未安装，跳过 paramiko 安装"
+fi
+
 # 4. 安装 Claude Code
 echo ""
 echo "📦 安装 Claude Code..."

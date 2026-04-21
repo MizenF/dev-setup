@@ -519,6 +519,47 @@ if ($codexCmd) {
     }
 }
 
+# 2.7. Install paramiko (SSH2 Python library)
+Write-Host ""
+Write-Host "Installing paramiko..." -ForegroundColor Yellow
+
+# Find python executable (may not be in PATH yet after winget install)
+$pythonPath = $null
+$pythonCmd = Get-Command python -ErrorAction SilentlyContinue
+if ($pythonCmd) {
+    $pythonPath = $pythonCmd.Source
+}
+
+if (-not $pythonPath) {
+    $defaultPython = Get-Item "$env:LOCALAPPDATA\Programs\Python\Python*\python.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($defaultPython) {
+        $pythonPath = $defaultPython.FullName
+    }
+}
+
+if ($pythonPath) {
+    # Idempotency: check if paramiko is already importable
+    & $pythonPath -c "import paramiko" 2>&1 | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "paramiko is already installed" -ForegroundColor Green
+    } else {
+        try {
+            & $pythonPath -m pip install --user paramiko
+            if ($LASTEXITCODE -eq 0) {
+                Write-Host "paramiko installed successfully" -ForegroundColor Green
+            } else {
+                Write-Host "WARNING: paramiko installation failed" -ForegroundColor Yellow
+                Write-Host "   You can manually install it later with: python -m pip install --user paramiko" -ForegroundColor Gray
+            }
+        } catch {
+            Write-Host "WARNING: paramiko installation failed - $($_.Exception.Message)" -ForegroundColor Yellow
+        }
+    }
+} else {
+    Write-Host "WARNING: Python not found; paramiko not installed" -ForegroundColor Yellow
+    Write-Host "   Python may still be installing. Run this script again to install paramiko." -ForegroundColor Gray
+}
+
 # ===== Helper Functions =====
 function Install-GitHubRelease {
     param(

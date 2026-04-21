@@ -30,6 +30,14 @@ else
     echo "✅ Python3 已安装"
 fi
 
+# paramiko (SSH2 Python 库)
+if ! python3 -c "import paramiko" &> /dev/null; then
+    echo "正在安装 paramiko..."
+    sudo apt install -y python3-paramiko
+else
+    echo "✅ paramiko 已安装"
+fi
+
 # Node.js & npm
 if ! command -v node &> /dev/null; then
     echo "正在安装 Node.js..."

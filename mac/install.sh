@@ -63,6 +63,14 @@ echo ""
 echo "📦 安装 Claude Code 插件..."
 
 if command -v claude &> /dev/null; then
+    # 注册 Claude marketplace（幂等：已存在则跳过）
+    if claude plugin marketplace list 2>/dev/null | grep -q "claude-plugins-official"; then
+        echo "✅ Claude marketplace 已注册: claude-plugins-official"
+    else
+        echo "📦 注册 Claude marketplace: claude-plugins-official"
+        claude plugin marketplace add anthropics/claude-plugins-official
+    fi
+
     CLAUDE_PLUGINS=(
         "commit-commands"
         "code-review"

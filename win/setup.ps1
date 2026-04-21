@@ -441,6 +441,15 @@ Write-Host "Installing Claude Code plugins..." -ForegroundColor Yellow
 
 $claudeCmd = Get-Command claude -ErrorAction SilentlyContinue
 if ($claudeCmd) {
+    # Register Claude marketplace (idempotent: skip if already registered)
+    $marketplaceList = & claude plugin marketplace list 2>&1 | Out-String
+    if ($marketplaceList -match "claude-plugins-official") {
+        Write-Host "Claude marketplace already registered: claude-plugins-official" -ForegroundColor Green
+    } else {
+        Write-Host "Registering Claude marketplace: claude-plugins-official" -ForegroundColor Yellow
+        & claude plugin marketplace add anthropics/claude-plugins-official
+    }
+
     $claudePlugins = @(
         "commit-commands",
         "code-review",

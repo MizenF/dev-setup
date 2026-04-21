@@ -1,0 +1,15 @@
+# Claude Code local state (memory, settings, sessions)
+.claude/
+
+# Local console / debug output
+console.txt
+*.log
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp

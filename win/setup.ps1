@@ -538,22 +538,17 @@ if (-not $pythonPath) {
 }
 
 if ($pythonPath) {
-    # Idempotency: check if paramiko is already importable
-    & $pythonPath -c "import paramiko" 2>&1 | Out-Null
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "paramiko is already installed" -ForegroundColor Green
-    } else {
-        try {
-            & $pythonPath -m pip install --user paramiko
-            if ($LASTEXITCODE -eq 0) {
-                Write-Host "paramiko installed successfully" -ForegroundColor Green
-            } else {
-                Write-Host "WARNING: paramiko installation failed" -ForegroundColor Yellow
-                Write-Host "   You can manually install it later with: python -m pip install --user paramiko" -ForegroundColor Gray
-            }
-        } catch {
-            Write-Host "WARNING: paramiko installation failed - $($_.Exception.Message)" -ForegroundColor Yellow
+    # pip install is idempotent: prints "Requirement already satisfied" if present.
+    try {
+        & $pythonPath -m pip install --user paramiko
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "paramiko installed successfully" -ForegroundColor Green
+        } else {
+            Write-Host "WARNING: paramiko installation failed" -ForegroundColor Yellow
+            Write-Host "   You can manually install it later with: python -m pip install --user paramiko" -ForegroundColor Gray
         }
+    } catch {
+        Write-Host "WARNING: paramiko installation failed - $($_.Exception.Message)" -ForegroundColor Yellow
     }
 } else {
     Write-Host "WARNING: Python not found; paramiko not installed" -ForegroundColor Yellow

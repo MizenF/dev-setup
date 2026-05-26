@@ -50,7 +50,10 @@
           "PackageIdentifier": "OpenWhisperSystems.Signal"
         },
         {
-          "PackageIdentifier": "Google.Antigravity"
+          "PackageIdentifier": "Google.AntigravityIDE"
+        },
+        {
+          "PackageIdentifier": "Anthropic.Claude"
         }
       ],
       "SourceDetails": {
@@ -58,6 +61,19 @@
         "Identifier": "Microsoft.Winget.Source_8wekyb3d8bbwe",
         "Name": "winget",
         "Type": "Microsoft.PreIndexed.Package"
+      }
+    },
+    {
+      "Packages": [
+        {
+          "PackageIdentifier": "9PLM9XGG6VKS"
+        }
+      ],
+      "SourceDetails": {
+        "Argument": "https://storeedgefd.dsx.mp.microsoft.com/v9.0",
+        "Identifier": "StoreEdgeFD",
+        "Name": "msstore",
+        "Type": "Microsoft.Rest"
       }
     }
   ],

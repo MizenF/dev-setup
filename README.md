@@ -29,7 +29,7 @@ chmod +x install.sh
 | CLI 工具 | ripgrep, fd, bat, eza, fzf, tmux, jq, yq, httpie, gh, tree, neofetch |
 | 容器 | Docker, Docker Compose |
 | 应用 (Cask) | VSCode, Chrome, iTerm2, Postman, Bruno, 7zip |
-| AI / 编辑器 | Claude Desktop, Google Antigravity IDE |
+| AI / 编辑器 | Claude Desktop, Codex Desktop, Google Antigravity IDE |
 | 通讯 | Discord, Signal |
 
 安装完成后：
@@ -56,7 +56,7 @@ Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
 | 语言运行时 | Python 3.12, Node.js, Git, OpenJDK 17 |
 | 容器 | Docker Desktop |
 | 编辑器 / 终端 | VSCode, Windows Terminal, Oh-My-Posh |
-| AI / 编辑器 | Claude Code CLI, Codex CLI, Google Antigravity IDE |
+| AI / 编辑器 | Claude Desktop, Codex Desktop, Claude Code CLI, Codex CLI, Google Antigravity IDE |
 | 前端工具 | Yarn |
 | CLI 工具 | GitHub CLI |
 | 应用 | Chrome, Postman, Bruno, 7zip, Discord, Signal |

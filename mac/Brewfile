@@ -49,7 +49,8 @@ cask "iterm2"
 cask "postman"
 cask "bruno"
 cask "7zip"
-cask "claude"            # Claude Desktop (AI 助手)
+cask "claude"            # Claude Desktop (Anthropic AI 助手)
+cask "codex-app"         # Codex Desktop (OpenAI 编程智能体桌面端)
 cask "discord"           # Discord 通讯工具
 cask "signal"            # Signal 加密通讯
-cask "antigravity"       # Google Antigravity IDE (AI 编程平台)
+cask "antigravity-ide"   # Google Antigravity IDE (AI 编程平台)

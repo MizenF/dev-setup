@@ -78,7 +78,7 @@ The architecture follows a hub-and-spoke pattern where dotfiles are the central 
 - **Languages:** Python 3, Node.js, OpenJDK 17
 - **CLI utilities:** ripgrep, fd, fzf, jq, yq, bat, eza, httpie
 - **Containers:** Docker, Docker Compose
-- **AI tools:** Claude Desktop, Claude Code CLI, Codex CLI
+- **AI tools:** Claude Desktop, Codex Desktop, Claude Code CLI, Codex CLI, Google Antigravity IDE
 - **Apps:** VSCode, Chrome, Windows Terminal/iTerm2, Discord, Signal
 
 ## Optional Extended Installation
